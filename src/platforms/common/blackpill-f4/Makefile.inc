@@ -15,11 +15,11 @@ CFLAGS +=                           \
 	-Iplatforms/common/blackpill-f4
 
 LDFLAGS_BOOT =              \
+	--specs=nano.specs      \
 	-lopencm3_stm32f4       \
 	-Wl,-T,$(LINKER_SCRIPT) \
 	-nostartfiles           \
 	-lc                     \
-	-lnosys                 \
 	-Wl,-Map=mapfile        \
 	-mthumb                 \
 	-mcpu=cortex-m4         \
@@ -35,6 +35,13 @@ CFLAGS += -DDFU_SERIAL_LENGTH=9
 else
 LDFLAGS += $(LDFLAGS_BOOT)
 CFLAGS += -DDFU_SERIAL_LENGTH=13
+endif
+
+ifeq ($(ENABLE_DEBUG), 1)
+# Use rdimon when there is another JTAG adapter on our BMP adapter
+LDFLAGS += --specs=rdimon.specs
+else
+LDFLAGS += --specs=nosys.specs
 endif
 
 ifdef ALTERNATIVE_PINOUT
