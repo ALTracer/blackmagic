@@ -42,16 +42,23 @@ extern uint32_t _ebss; // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-
 
 void platform_init(void)
 {
+#ifdef USE_STM32F4_MASKROM
 	volatile uint32_t *magic = (uint32_t *)&_ebss;
+#endif
 	/* Enable GPIO peripherals */
 	rcc_periph_clock_enable(RCC_GPIOA);
 	rcc_periph_clock_enable(RCC_GPIOC);
 	rcc_periph_clock_enable(RCC_GPIOB);
 
+#ifdef USE_STM32F4_MASKROM
+
+	/* Blackpill board has a floating button on PA0. Pull it up and use as active-low. */
+	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO0);
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
 	/* Check the USER button */
-	if (gpio_get(GPIOA, GPIO0) || (magic[0] == BOOTMAGIC0 && magic[1] == BOOTMAGIC1)) {
+	if (!gpio_get(GPIOA, GPIO0) || (magic[0] == BOOTMAGIC0 && magic[1] == BOOTMAGIC1)) {
 		magic[0] = 0;
 		magic[1] = 0;
 		/* Assert blue LED as indicator we are in the bootloader */
@@ -67,7 +74,9 @@ void platform_init(void)
 		scb_reset_core();
 	}
 #pragma GCC diagnostic pop
-	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[RCC_CLOCK_3V3_84MHZ]);
+
+#endif
+	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[RCC_CLOCK_3V3_96MHZ]);
 
 	/* Enable peripherals */
 	rcc_periph_clock_enable(RCC_OTGFS);
