@@ -25,6 +25,8 @@
 
 #define PLATFORM_IDENT "(BlackPill-F401CE) "
 
+#define RCC_CLOCK_SCALE RCC_CLOCK_3V3_84MHZ
+
 #include "blackpill-f4.h"
 
 #endif /* PLATFORMS_BLACKPILL_F401CE_PLATFORM_H */

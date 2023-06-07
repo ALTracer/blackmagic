@@ -76,7 +76,7 @@ void platform_init(void)
 #pragma GCC diagnostic pop
 
 #endif
-	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[RCC_CLOCK_3V3_96MHZ]);
+	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[RCC_CLOCK_SCALE]);
 
 	/* Enable peripherals */
 	rcc_periph_clock_enable(RCC_OTGFS);
