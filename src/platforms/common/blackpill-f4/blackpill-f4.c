@@ -42,7 +42,7 @@ extern uint32_t _ebss; // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-
 
 void platform_init(void)
 {
-#ifdef USE_STM32F4_MASKROM
+#ifndef BMP_BOOTLOADER
 	volatile uint32_t *magic = (uint32_t *)&_ebss;
 #endif
 	/* Enable GPIO peripherals */
@@ -50,8 +50,7 @@ void platform_init(void)
 	rcc_periph_clock_enable(RCC_GPIOC);
 	rcc_periph_clock_enable(RCC_GPIOB);
 
-#ifdef USE_STM32F4_MASKROM
-
+#ifndef BMP_BOOTLOADER
 	/* Blackpill board has a floating button on PA0. Pull it up and use as active-low. */
 	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO0);
 

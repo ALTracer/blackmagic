@@ -31,7 +31,7 @@ LDFLAGS_BOOT =              \
 ifeq ($(BMP_BOOTLOADER), 1)
 $(info  Load address 0x08004000 for BMPBootloader)
 LDFLAGS = $(LDFLAGS_BOOT) -Wl,-Ttext=0x8004000
-CFLAGS += -DAPP_START=0x08004000
+CFLAGS += -DAPP_START=0x08004000 -DBMP_BOOTLOADER
 CFLAGS += -DDFU_SERIAL_LENGTH=9
 else
 LDFLAGS += $(LDFLAGS_BOOT)
@@ -66,7 +66,7 @@ all:	blackmagic.bin
 else
 all:	blackmagic.bin  blackmagic_dfu.bin blackmagic_dfu.hex
 blackmagic_dfu: usbdfu.o dfucore.o dfu_f4.o serialno.o
-	$(CC) $^ -o $@ $(LDFLAGS_BOOT)
+	$(CC) $^ -o $@ $(LDFLAGS_BOOT) --specs=nosys.specs
 
 blackmagic_dfu.bin:    blackmagic_dfu
 	$(OBJCOPY) -O binary $^ $@
