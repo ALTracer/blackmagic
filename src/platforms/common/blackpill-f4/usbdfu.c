@@ -56,7 +56,7 @@ int main(void)
 		dfu_jump_app_if_valid();
 #pragma GCC diagnostic pop
 
-	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[RCC_CLOCK_SCALE]);
+	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[PLATFORM_CLOCK_FREQ]);
 
 	/* Assert blue LED as indicator we are in the bootloader */
 	rcc_periph_clock_enable(RCC_GPIOC);

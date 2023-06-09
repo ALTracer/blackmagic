@@ -74,9 +74,8 @@ void platform_init(void)
 		scb_reset_core();
 	}
 #pragma GCC diagnostic pop
-
 #endif
-	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[RCC_CLOCK_SCALE]);
+	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[PLATFORM_CLOCK_FREQ]);
 
 	/* Enable peripherals */
 	rcc_periph_clock_enable(RCC_OTGFS);
