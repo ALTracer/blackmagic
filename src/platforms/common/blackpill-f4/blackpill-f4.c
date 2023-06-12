@@ -80,15 +80,9 @@ void platform_init(void)
 	rcc_periph_clock_enable(RCC_OTGFS);
 	rcc_periph_clock_enable(RCC_CRC);
 
-#if 0
-	/* Set up USB Pins and alternate function */
-	gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO9 | GPIO11 | GPIO12);
-	gpio_set_af(GPIOA, GPIO_AF10, GPIO9 | GPIO10 | GPIO11 | GPIO12);
-#else
-	/* PA9/PA10 are not routed to USB on Blackpill-F4 */
+	/* Set up DM/DP pins. PA9/PA10 are not routed to USB-C. */
 	gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO11 | GPIO12);
 	gpio_set_af(GPIOA, GPIO_AF10, GPIO11 | GPIO12);
-#endif
 
 	GPIOA_OSPEEDR &= 0x3c00000cU;
 	GPIOA_OSPEEDR |= 0x28000008U;
