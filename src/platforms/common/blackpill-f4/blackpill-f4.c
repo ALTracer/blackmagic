@@ -38,13 +38,10 @@
 #include <libopencm3/usb/dwc/otg_fs.h>
 
 jmp_buf fatal_error_jmpbuf;
-extern uint32_t _ebss; // NOLINT(bugprone-reserved-identifier,cert-dcl37-c,cert-dcl51-cpp)
+volatile uint32_t magic[2] __attribute__((section(".noinit")));
 
 void platform_init(void)
 {
-#ifndef BMP_BOOTLOADER
-	volatile uint32_t *magic = (uint32_t *)&_ebss;
-#endif
 	/* Enable GPIO peripherals */
 	rcc_periph_clock_enable(RCC_GPIOA);
 	rcc_periph_clock_enable(RCC_GPIOC);
@@ -54,8 +51,6 @@ void platform_init(void)
 	/* Blackpill board has a floating button on PA0. Pull it up and use as active-low. */
 	gpio_mode_setup(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO0);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
 	/* Check the USER button */
 	if (!gpio_get(GPIOA, GPIO0) || (magic[0] == BOOTMAGIC0 && magic[1] == BOOTMAGIC1)) {
 		magic[0] = 0;
@@ -72,7 +67,6 @@ void platform_init(void)
 		SYSCFG_MEMRM |= 1U;
 		scb_reset_core();
 	}
-#pragma GCC diagnostic pop
 #endif
 	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[PLATFORM_CLOCK_FREQ]);
 
@@ -142,7 +136,6 @@ const char *platform_target_voltage(void)
 
 void platform_request_boot(void)
 {
-	uint32_t *magic = (uint32_t *)&_ebss;
 	magic[0] = BOOTMAGIC0;
 	magic[1] = BOOTMAGIC1;
 	scb_reset_system();
