@@ -619,6 +619,8 @@ int cl_execute(bmda_cli_options_s *opt)
 			if (opt->opt_mode == BMP_MODE_FLASH_VERIFY || opt->opt_mode == BMP_MODE_FLASH_WRITE_VERIFY) {
 				if (memcmp(data, flash + offset, worksize) != 0) {
 					DEBUG_ERROR("Verify failed at flash region 0x%08" PRIx32 "\n", flash_src);
+					DEBUG_ERROR("Mismatch in 0x%08" PRIx32 "..0x%08" PRIx32 "\n", flash_src + (uint32_t)offset,
+						flash_src + (uint32_t)(offset + worksize));
 					res = -1;
 					goto free_map;
 				}
