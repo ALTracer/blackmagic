@@ -192,6 +192,12 @@ static void usbdfu_getstatus_complete(usbd_device *dev, usb_setup_data_s *req)
 		} else {
 			const uint32_t baseaddr = prog.addr + ((prog.blocknum - 2U) * dfu_function.wTransferSize);
 			dfu_flash_program_buffer(baseaddr, prog.buf, prog.len);
+			if (memcmp((const uint32_t *)baseaddr, prog.buf, prog.len) != 0) {
+				current_error = DFU_STATUS_ERR_VERIFY;
+				usbdfu_state = STATE_DFU_ERROR;
+				flash_lock();
+				return;
+			}
 		}
 		flash_lock();
 
