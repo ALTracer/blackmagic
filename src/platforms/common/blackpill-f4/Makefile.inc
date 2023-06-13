@@ -15,7 +15,6 @@ CFLAGS +=                           \
 	-Iplatforms/common/blackpill-f4
 
 LDFLAGS_BOOT =              \
-	--specs=nano.specs      \
 	-lopencm3_stm32f4       \
 	-Wl,-T,$(LINKER_SCRIPT) \
 	-nostartfiles           \
@@ -31,12 +30,13 @@ LDFLAGS_BOOT =              \
 ifeq ($(BMP_BOOTLOADER), 1)
 $(info  Load address 0x08004000 for BMPBootloader)
 LDFLAGS = $(LDFLAGS_BOOT) -Wl,-Ttext=0x8004000
-CFLAGS += -DAPP_START=0x08004000 -DBMP_BOOTLOADER
-CFLAGS += -DDFU_SERIAL_LENGTH=9
+CFLAGS += -DBMP_BOOTLOADER -DAPP_START=0x08004000
 else
 LDFLAGS += $(LDFLAGS_BOOT)
-CFLAGS += -DDFU_SERIAL_LENGTH=13
 endif
+
+# Use ST DFU bootloader serial algorithm
+CFLAGS += -DDFU_SERIAL_LENGTH=13
 
 ifeq ($(ENABLE_DEBUG), 1)
 # Use rdimon when there is another JTAG adapter on our BMP adapter
@@ -44,6 +44,8 @@ LDFLAGS += --specs=rdimon.specs
 else
 LDFLAGS += --specs=nosys.specs
 endif
+
+LDFLAGS += --specs=nano.specs
 
 ifdef ALTERNATIVE_PINOUT
 CFLAGS += -DALTERNATIVE_PINOUT=$(ALTERNATIVE_PINOUT)
