@@ -21,12 +21,30 @@
 #include <libopencm3/cm3/systick.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/flash.h>
 #include <libopencm3/cm3/scb.h>
 #include <libopencm3/usb/dwc/otg_fs.h>
 
 #include "usbdfu.h"
 #include "general.h"
 #include "platform.h"
+
+const struct rcc_clock_scale rcc_hse_25mhz_3v3_48mhz = {
+	/* 48MHz */
+	.pllm = 25,
+	.plln = 192,
+	.pllp = 4,
+	.pllq = 4,
+	.pllr = 0,
+	.pll_source = RCC_CFGR_PLLSRC_HSE_CLK,
+	.hpre = RCC_CFGR_HPRE_DIV_NONE,
+	.ppre1 = RCC_CFGR_PPRE_DIV_NONE,
+	.ppre2 = RCC_CFGR_PPRE_DIV_NONE,
+	.voltage_scale = PWR_SCALE1,
+	.flash_config = FLASH_ACR_DCEN | FLASH_ACR_ICEN | FLASH_ACR_LATENCY_1WS,
+	.ahb_frequency = 48000000,
+	.apb1_frequency = 48000000,
+	.apb2_frequency = 48000000};
 
 uintptr_t app_address = 0x08004000U;
 volatile uint32_t magic[2] __attribute__((section(".noinit")));
@@ -50,7 +68,7 @@ int main(void)
 		dfu_jump_app_if_valid();
 	}
 
-	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[PLATFORM_CLOCK_FREQ]);
+	rcc_clock_setup_pll(&rcc_hse_25mhz_3v3_48mhz);
 
 	/* Assert blue LED as indicator we are in the bootloader */
 	rcc_periph_clock_enable(RCC_GPIOC);
