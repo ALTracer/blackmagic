@@ -80,6 +80,7 @@ static bool cmd_debug_bmp(target_s *t, int argc, const char **argv);
 static bool cmd_shutdown_bmda(target_s *t, int argc, const char **argv);
 #endif
 static bool cmd_meminfo(target_s *t, int argc, const char **argv);
+static bool cmd_mallopt(target_s *t, int argc, const char **argv);
 
 #ifdef _MSC_VER
 #define strtok_r strtok_s
@@ -123,6 +124,7 @@ const command_s cmd_list[] = {
 	{"shutdown_bmda", cmd_shutdown_bmda, "Tell the BMDA server to shut down when the GDB connection closes"},
 #endif
 	{"meminfo", cmd_meminfo, "Query probe RAM status"},
+	{"mallopt", cmd_mallopt, "Adjust malloc trim-on-free top space threshold: mallopt 131072"},
 	{NULL, NULL, NULL},
 };
 
@@ -724,4 +726,22 @@ static bool cmd_meminfo(target_s *t, int argc, const char **argv)
 	gdb_outf("Dumped heap stats to stderr.\n");
 #endif
 	return true;
+}
+
+static bool cmd_mallopt(target_s *t, int argc, const char **argv)
+{
+	(void)t;
+	if (argc < 2) {
+		gdb_outf("usage: mallopt <trim_threshold>\n");
+		return false;
+	}
+
+	int trim_threshold = strtoul(argv[1], NULL, 10);
+	if (mallopt(M_TRIM_THRESHOLD, trim_threshold) == 1) {
+		gdb_outf("mallopt: Updated malloc trim threshold to %d\n", trim_threshold);
+		return true;
+	} else {
+		gdb_outf("nano_mallopt: trim-on-free not supported\n");
+		return false;
+	}
 }
