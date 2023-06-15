@@ -19,8 +19,10 @@
  */
 
 #include <stddef.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <libopencm3/cm3/vector.h>
+#include "general.h"
 
 static char *heap_end = NULL;
 
@@ -37,7 +39,7 @@ void *_sbrk(ptrdiff_t incr)
 	/* Avoid growing heap above current MSP. No other limits. */
 	if (heap_end + incr > stack_ptr) {
 #ifdef ENABLE_DEBUG
-		_write(stdout, "_sbrk: Heap and stack collision\n", 32);
+		puts("_sbrk: Heap and stack collision");
 		abort();
 #else
 		errno = ENOMEM;
@@ -58,7 +60,6 @@ ptrdiff_t helper_stack_used(void)
 	return stack_top - stack_ptr;
 }
 
-#include "general.h"
 #include "platform.h"
 
 /*
