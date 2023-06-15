@@ -23,7 +23,7 @@ ifeq ($(ENABLE_DEBUG), 1)
 CFLAGS += -DENABLE_DEBUG
 endif
 
-SRC =              \
+SRC_CORE =         \
 	adiv5.c        \
 	adiv5_jtag.c   \
 	adiv5_swd.c    \
@@ -32,7 +32,6 @@ SRC =              \
 	cortexa.c      \
 	cortexm.c      \
 	crc32.c        \
-	efm32.c        \
 	exception.c    \
 	gdb_if.c       \
 	gdb_main.c     \
@@ -40,10 +39,22 @@ SRC =              \
 	gdb_packet.c   \
 	gdb_reg.c      \
 	hex_utils.c    \
-	hc32l110.c     \
-	imxrt.c        \
 	jtag_devs.c    \
 	jtag_scan.c    \
+	main.c         \
+	maths_utils.c  \
+	morse.c        \
+	remote.c       \
+	sfdp.c         \
+	spi.c          \
+	target.c       \
+	target_flash.c \
+	target_probe.c
+
+SRC_TARGET_SPEC =  \
+	efm32.c        \
+	hc32l110.c     \
+	imxrt.c        \
 	lmi.c          \
 	lpc_common.c   \
 	lpc11xx.c      \
@@ -54,22 +65,16 @@ SRC =              \
 	lpc546xx.c     \
 	lpc55xx.c      \
 	kinetis.c      \
-	main.c         \
-	maths_utils.c  \
-	morse.c        \
 	msp432e4.c     \
 	msp432p4.c     \
 	nrf51.c        \
 	nrf91.c        \
 	nxpke04.c      \
-	remote.c       \
 	rp.c           \
 	sam3x.c        \
 	sam4l.c        \
 	samd.c         \
 	samx5x.c       \
-	sfdp.c         \
-	spi.c          \
 	stm32f1.c      \
 	ch32f1.c       \
 	stm32f4.c      \
@@ -79,10 +84,13 @@ SRC =              \
 	stm32l0.c      \
 	stm32l4.c      \
 	stm32g0.c      \
-	renesas.c      \
-	target.c       \
-	target_flash.c \
-	target_probe.c
+	renesas.c
+
+SRC = $(SRC_CORE)
+# Drop target-specific logic
+ifneq ($(NO_TARGET_SPEC),1)
+SRC += $(SRC_TARGET_SPEC)
+endif
 
 ifeq (,$(filter all_platforms,$(MAKECMDGOALS)))
 include $(PLATFORM_DIR)/Makefile.inc
