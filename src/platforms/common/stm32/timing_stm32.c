@@ -77,6 +77,8 @@ void platform_delay(uint32_t ms)
 		continue;
 }
 
+extern void platform_check_stack_overflow();
+
 void sys_tick_handler(void)
 {
 	time_ms += SYSTICKMS;
@@ -128,6 +130,8 @@ void sys_tick_handler(void)
 	} else
 		monitor_ticks = 0;
 #endif
+
+	platform_check_stack_overflow();
 }
 
 uint32_t platform_time_ms(void)

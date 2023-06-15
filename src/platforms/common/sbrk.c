@@ -22,9 +22,10 @@
 #include <errno.h>
 #include <libopencm3/cm3/vector.h>
 
+static char *heap_end = NULL;
+
 void *_sbrk(ptrdiff_t incr)
 {
-	static char *heap_end = NULL;
 	char *prev_heap_end;
 
 	/* Put heap base after .bss on first call */
@@ -55,4 +56,27 @@ ptrdiff_t helper_stack_used(void)
 	register const unsigned int *stack_ptr __asm__("sp");
 	const unsigned int *stack_top = &_stack;
 	return stack_top - stack_ptr;
+}
+
+#include "general.h"
+#include "platform.h"
+
+/*
+ * Lockup if stack smashes top of heap.
+ * Assuming this is called from periodic interrupt,
+ * and there's no separate interrupt stack.
+ */
+void platform_check_stack_overflow(void)
+{
+	register const char *stack_ptr __asm__("sp");
+	/* Cannot call _sbrk because it detects the collision */
+	char *heap_watermark = heap_end; // = _sbrk(0);
+	/* Assume heap must be below the stack, panic otherwise */
+	if (heap_watermark < stack_ptr) {
+		return;
+	}
+	DEBUG_ERROR("Stack overflows the heap (at %p)\n", stack_ptr);
+	while (1) {
+		gpio_toggle(LED_PORT, LED_IDLE_RUN);
+	}
 }
