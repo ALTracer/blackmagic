@@ -81,6 +81,7 @@ static bool cmd_debug_bmp(target_s *t, int argc, const char **argv);
 #if PC_HOSTED == 1
 static bool cmd_shutdown_bmda(target_s *t, int argc, const char **argv);
 #endif
+static bool cmd_meminfo(target_s *t, int argc, const char **argv);
 
 const command_s cmd_list[] = {
 	{"version", cmd_version, "Display firmware version info"},
@@ -119,6 +120,7 @@ const command_s cmd_list[] = {
 #if PC_HOSTED == 1
 	{"shutdown_bmda", cmd_shutdown_bmda, "Tell the BMDA server to shut down when the GDB connection closes"},
 #endif
+	{"meminfo", cmd_meminfo, "Query probe RAM status"},
 	{NULL, NULL, NULL},
 };
 
@@ -684,5 +686,30 @@ static bool cmd_heapinfo(target_s *t, int argc, const char **argv)
 		target_set_heapinfo(t, heap_base, heap_limit, stack_base, stack_limit);
 	} else
 		gdb_outf("heapinfo heap_base heap_limit stack_base stack_limit\n");
+	return true;
+}
+
+#include <malloc.h> //mallinfo, malloc_stats
+
+static bool cmd_meminfo(target_s *t, int argc, const char **argv)
+{
+	(void)t;
+	(void)argc;
+	(void)argv;
+
+#if PC_HOSTED == 0
+	extern ptrdiff_t helper_stack_used(void);
+
+	gdb_outf("BMD Probe RAM stats: stack used = %5d\n", helper_stack_used());
+
+	/* Emulate malloc_stats() call. Don't care about mmap in freestanding. */
+	struct mallinfo local_mallinfo = {0};
+	local_mallinfo = mallinfo();
+	gdb_outf("heap arena (sbrked) = %5d; topmost trimmable = %5d\n", local_mallinfo.arena, local_mallinfo.keepcost);
+	gdb_outf("bytes in use = %5d, bytes available = %5d\n", local_mallinfo.uordblks, local_mallinfo.fordblks);
+#else
+	malloc_stats();
+	gdb_outf("Dumped heap stats to stderr.\n");
+#endif
 	return true;
 }
