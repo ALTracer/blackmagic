@@ -48,3 +48,11 @@ void *_sbrk(ptrdiff_t incr)
 	heap_end += incr;
 	return (void *)prev_heap_end;
 }
+
+/* Determine current stack depth of MSP */
+ptrdiff_t helper_stack_used(void)
+{
+	register const unsigned int *stack_ptr __asm__("sp");
+	const unsigned int *stack_top = &_stack;
+	return stack_top - stack_ptr;
+}
