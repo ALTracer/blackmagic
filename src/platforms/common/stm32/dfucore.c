@@ -50,9 +50,11 @@
 #include "usbdfu.h"
 #include "usb_types.h"
 
+#define TRANSFER_SIZE 1024
+
 usbd_device *usbdev;
 /* We need a special large control buffer for this device: */
-uint8_t usbd_control_buffer[1024];
+uint8_t usbd_control_buffer[TRANSFER_SIZE];
 
 static uint32_t max_address;
 
@@ -91,7 +93,7 @@ const usb_dfu_descriptor_s dfu_function = {
 	.bDescriptorType = DFU_FUNCTIONAL,
 	.bmAttributes = USB_DFU_CAN_DOWNLOAD | USB_DFU_CAN_UPLOAD | USB_DFU_WILL_DETACH,
 	.wDetachTimeout = 255,
-	.wTransferSize = 1024,
+	.wTransferSize = TRANSFER_SIZE,
 	.bcdDFUVersion = 0x011a,
 };
 
