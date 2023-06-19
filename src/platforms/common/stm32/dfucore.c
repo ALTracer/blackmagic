@@ -185,11 +185,14 @@ static void usbdfu_getstatus_complete(usbd_device *dev, usb_setup_data_s *req)
 			switch (prog.buf[0]) {
 			case CMD_ERASE:
 				if (addr < app_address || addr >= max_address) {
+					current_error = DFU_STATUS_ERR_ADDRESS;
 					usbdfu_state = STATE_DFU_ERROR;
 					flash_lock();
 					return;
 				}
 				dfu_check_and_do_sector_erase(addr);
+			default:
+				break;
 			}
 		} else {
 			const uint32_t baseaddr = prog.addr + ((prog.blocknum - 2U) * dfu_function.wTransferSize);
@@ -287,6 +290,8 @@ static usbd_request_return_codes_e usbdfu_control_request(usbd_device *dev, usb_
 		data[0] = usbdfu_state;
 		*len = 1;
 		return USBD_REQ_HANDLED;
+	default:
+		break;
 	}
 
 	return USBD_REQ_NOTSUPP;
