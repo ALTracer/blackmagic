@@ -184,6 +184,7 @@ static void usbdfu_getstatus_complete(usbd_device *dev, usb_setup_data_s *req)
 			switch (prog.buf[0]) {
 			case CMD_ERASE:
 				if (addr < app_address || addr >= max_address) {
+					current_error = DFU_STATUS_ERR_ADDRESS;
 					usbdfu_state = STATE_DFU_ERROR;
 					flash_lock();
 					return;
