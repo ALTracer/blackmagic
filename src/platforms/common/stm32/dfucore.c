@@ -161,7 +161,7 @@ static uint8_t usbdfu_getstatus(uint32_t *poll_timeout)
 		return DFU_STATUS_OK;
 
 	case STATE_DFU_MANIFEST_SYNC:
-		/* Device will reset when read is complete */
+		/* Device will reset after download is complete */
 		usbdfu_state = STATE_DFU_MANIFEST;
 		return DFU_STATUS_OK;
 	case STATE_DFU_ERROR:
@@ -209,10 +209,14 @@ static void usbdfu_getstatus_complete(usbd_device *dev, usb_setup_data_s *req)
 		/* We jump straight to dfuDNLOAD-IDLE, skipping dfuDNLOAD-SYNC */
 		usbdfu_state = STATE_DFU_DNLOAD_IDLE;
 		return;
-
 	case STATE_DFU_MANIFEST:
+		usbdfu_state = STATE_DFU_MANIFEST_WAIT_RESET;
+		return;
+#if 0
+	case STATE_DFU_MANIFEST_WAIT_RESET:
 		dfu_detach();
 		return; /* Will never return */
+#endif
 	default:
 		return;
 	}
@@ -290,6 +294,8 @@ static usbd_request_return_codes_e usbdfu_control_request(usbd_device *dev, usb_
 		data[0] = usbdfu_state;
 		*len = 1;
 		return USBD_REQ_HANDLED;
+	/* Only APP should receive DFU_DETACH */
+	case DFU_DETACH:
 	default:
 		break;
 	}
@@ -309,8 +315,12 @@ void dfu_init(const usbd_driver *driver)
 
 void dfu_main(void)
 {
-	while (true)
+	while (true) {
 		usbd_poll(usbdev);
+		if (usbdfu_state == STATE_DFU_MANIFEST_WAIT_RESET) {
+			dfu_detach();
+		}
+	}
 }
 
 #if defined(DFU_IFACE_STRING_OFFSET)
