@@ -75,15 +75,14 @@ int main(void)
 	gpio_mode_setup(LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, LED_BOOTLOADER);
 	gpio_set(LED_PORT, LED_BOOTLOADER);
 
-	/* Enable peripherals */
-	rcc_periph_clock_enable(RCC_OTGFS);
-
 	/* Set up USB Pins and alternate function*/
 	gpio_mode_setup(GPIOA, GPIO_MODE_AF, GPIO_PUPD_NONE, GPIO11 | GPIO12);
 	gpio_set_af(GPIOA, GPIO_AF10, GPIO11 | GPIO12);
 
 	dfu_protect(false);
 	dfu_init(&USB_DRIVER);
+	/* Reset EP0, address and config after ST DFU */
+	_usbd_reset(usbdev);
 
 	/* https://github.com/libopencm3/libopencm3/pull/1256#issuecomment-779424001 */
 	OTG_FS_GCCFG |= OTG_GCCFG_NOVBUSSENS | OTG_GCCFG_PWRDWN;
