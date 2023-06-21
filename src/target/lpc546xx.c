@@ -85,23 +85,24 @@ struct lpc546xx_device {
 	uint32_t chipid;
 	const char *designator;
 	uint16_t flash_kbytes;
+	uint16_t sram123_kbytes;
 };
 
 /* Reference: "LPC546XX Product data sheet" revision 2.6, 2018
  * Part type number encoding: LPC546xxJyyy, where yyy is flash size, KiB
  */
 static const struct lpc546xx_device lpc546xx_devices_lut[] = {
-	{0x7f954605U, "LPC54605J256", 256},
-	{0x7f954606U, "LPC54606J256", 256},
-	{0x7f954607U, "LPC54607J256", 256},
-	{0x7f954616U, "LPC54616J256", 256},
-	{0xfff54605U, "LPC54605J512", 512},
-	{0xfff54606U, "LPC54606J512", 512},
-	{0xfff54607U, "LPC54607J512", 512},
-	{0xfff54608U, "LPC54608J512", 512},
-	{0xfff54616U, "LPC54616J512", 512},
-	{0xfff54618U, "LPC54618J512", 512},
-	{0xfff54628U, "LPC54628J512", 512},
+	{0x7f954605U, "LPC54605J256", 256, 32},
+	{0x7f954606U, "LPC54606J256", 256, 32},
+	{0x7f954607U, "LPC54607J256", 256, 32},
+	{0x7f954616U, "LPC54616J256", 256, 32},
+	{0xfff54605U, "LPC54605J512", 512, 96},
+	{0xfff54606U, "LPC54606J512", 512, 96},
+	{0xfff54607U, "LPC54607J512", 512, 96},
+	{0xfff54608U, "LPC54608J512", 512, 96},
+	{0xfff54616U, "LPC54616J512", 512, 96},
+	{0xfff54618U, "LPC54618J512", 512, 96},
+	{0xfff54628U, "LPC54628J512", 512, 96},
 };
 
 /* Look up device parameters */
@@ -139,6 +140,7 @@ bool lpc546xx_probe(target_s *t)
 {
 	const uint32_t chipid = target_mem_read32(t, LPC546XX_CHIPID);
 	uint32_t flash_size = 0;
+	uint32_t sram123_size = 0;
 
 #ifdef USE_LUT
 	const struct lpc546xx_device *device = lpc546xx_get_device(chipid);
@@ -147,6 +149,11 @@ bool lpc546xx_probe(target_s *t)
 
 	flash_size = device->flash_kbytes * 1024U;
 	t->driver = device->designator;
+	/* All parts have 64kB SRAM0 (and 32kB SRAMX)
+	 * J256 parts only have 32kB SRAM1
+	 * J512 parts also have 32kB SRAM2 & 32kB SRAM3 (total 96kB "upper" SRAM123)
+	 */
+	sram123_size = device->sram123_kbytes * 1024U;
 
 #else
 	switch (chipid) {
@@ -206,7 +213,9 @@ bool lpc546xx_probe(target_s *t)
 	 * Note: upper 96kiB is only usable after enabling the appropriate control
 	 * register bits, see LPC546xx User Manual: §7.5.19 AHB Clock Control register 0
 	 */
-	target_add_ram(t, 0x20000000, 0x28000);
+	const uint32_t sram0_size = 64U * 1024U;
+	target_add_ram(t, 0x20000000, sram0_size);
+	target_add_ram(t, 0x20010000, sram123_size);
 	target_add_commands(t, lpc546xx_cmd_list, "Lpc546xx");
 	t->target_options |= CORTEXM_TOPT_INHIBIT_NRST;
 	return true;
