@@ -78,17 +78,17 @@ const command_s lpc546xx_cmd_list[] = {
 	{NULL, NULL, NULL},
 };
 
-struct lpc546xx_device {
+typedef struct lpc546xx_device {
 	uint32_t chipid;
 	const char *designator;
 	uint16_t flash_kbytes;
 	uint16_t sram123_kbytes;
-};
+} lpc546xx_device_s;
 
 /* Reference: "LPC546XX Product data sheet" revision 2.6, 2018
  * Part type number encoding: LPC546xxJyyy, where yyy is flash size, KiB
  */
-static const struct lpc546xx_device lpc546xx_devices_lut[] = {
+static const lpc546xx_device_s lpc546xx_devices_lut[] = {
 	{0x7f954605U, "LPC54605J256", 256, 32},
 	{0x7f954606U, "LPC54606J256", 256, 32},
 	{0x7f954607U, "LPC54607J256", 256, 32},
@@ -103,13 +103,12 @@ static const struct lpc546xx_device lpc546xx_devices_lut[] = {
 };
 
 /* Look up device parameters */
-static const struct lpc546xx_device *lpc546xx_get_device(const uint32_t chipid)
+static const lpc546xx_device_s *lpc546xx_get_device(const uint32_t chipid)
 {
 	/* Linear search through chips */
-	for (size_t i = 0; i < (sizeof(lpc546xx_devices_lut) / sizeof(struct lpc546xx_device)); i++) {
-		if (lpc546xx_devices_lut[i].chipid == chipid) {
+	for (size_t i = 0; i < ARRAY_LENGTH(lpc546xx_devices_lut); i++) {
+		if (lpc546xx_devices_lut[i].chipid == chipid)
 			return &lpc546xx_devices_lut[i];
-		}
 	}
 
 	/* Unknown chip */
@@ -138,7 +137,7 @@ bool lpc546xx_probe(target_s *t)
 	uint32_t flash_size = 0;
 	uint32_t sram123_size = 0;
 
-	const struct lpc546xx_device *device = lpc546xx_get_device(chipid);
+	const lpc546xx_device_s *device = lpc546xx_get_device(chipid);
 	if (!device)
 		return false;
 
