@@ -158,48 +158,23 @@ bool lpc546xx_probe(target_s *t)
 #else
 	switch (chipid) {
 	case 0x7f954605U:
-		t->driver = "LPC54605J256";
-		flash_size = 0x40000;
-		break;
 	case 0x7f954606U:
-		t->driver = "LPC54606J256";
-		flash_size = 0x40000;
-		break;
 	case 0x7f954607U:
-		t->driver = "LPC54607J256";
-		flash_size = 0x40000;
-		break;
 	case 0x7f954616U:
-		t->driver = "LPC54616J256";
+		t->driver = "LPC546xxJ256";
 		flash_size = 0x40000;
+		sram123_size = 0x8000;
 		break;
 	case 0xfff54605U:
-		t->driver = "LPC54605J512";
-		flash_size = 0x80000;
-		break;
 	case 0xfff54606U:
-		t->driver = "LPC54606J512";
-		flash_size = 0x80000;
-		break;
 	case 0xfff54607U:
-		t->driver = "LPC54607J512";
-		flash_size = 0x80000;
-		break;
 	case 0xfff54608U:
-		t->driver = "LPC54608J512";
-		flash_size = 0x80000;
-		break;
 	case 0xfff54616U:
-		t->driver = "LPC54616J512";
-		flash_size = 0x80000;
-		break;
 	case 0xfff54618U:
-		t->driver = "LPC54618J512";
-		flash_size = 0x80000;
-		break;
 	case 0xfff54628U:
-		t->driver = "LPC54628J512";
+		t->driver = "LPC546xxJ512";
 		flash_size = 0x80000;
+		sram123_size = 0x18000;
 		break;
 	default:
 		return false;
