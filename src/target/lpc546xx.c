@@ -85,7 +85,8 @@ typedef struct lpc546xx_device {
 	uint16_t sram123_kbytes;
 } lpc546xx_device_s;
 
-/* Reference: "LPC546XX Product data sheet" revision 2.6, 2018
+/*
+ * Reference: "LPC546XX Product data sheet" revision 2.6, 2018
  * Part type number encoding: LPC546xxJyyy, where yyy is flash size, KiB
  */
 static const lpc546xx_device_s lpc546xx_devices_lut[] = {
@@ -143,7 +144,8 @@ bool lpc546xx_probe(target_s *t)
 
 	flash_size = device->flash_kbytes * 1024U;
 	t->driver = device->designator;
-	/* All parts have 64kB SRAM0 (and 32kB SRAMX)
+	/*
+	 * All parts have 64kB SRAM0 (and 32kB SRAMX)
 	 * J256 parts only have 32kB SRAM1
 	 * J512 parts also have 32kB SRAM2 & 32kB SRAM3 (total 96kB "upper" SRAM123)
 	 */
