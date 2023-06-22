@@ -109,7 +109,7 @@ static const lpc546xx_device_s *lpc546xx_get_device(const uint32_t chipid)
 	/* Linear search through chips */
 	for (size_t i = 0; i < ARRAY_LENGTH(lpc546xx_devices_lut); i++) {
 		if (lpc546xx_devices_lut[i].chipid == chipid)
-			return &lpc546xx_devices_lut[i];
+			return lpc546xx_devices_lut + i;
 	}
 
 	/* Unknown chip */
