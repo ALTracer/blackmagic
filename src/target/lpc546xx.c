@@ -78,9 +78,6 @@ const command_s lpc546xx_cmd_list[] = {
 	{NULL, NULL, NULL},
 };
 
-#define USE_LUT
-
-#ifdef USE_LUT
 struct lpc546xx_device {
 	uint32_t chipid;
 	const char *designator;
@@ -118,7 +115,6 @@ static const struct lpc546xx_device *lpc546xx_get_device(const uint32_t chipid)
 	/* Unknown chip */
 	return NULL;
 }
-#endif
 
 static void lpc546xx_add_flash(
 	target_s *target, uint32_t iap_entry, uint8_t base_sector, uint32_t addr, size_t len, size_t erasesize)
@@ -142,7 +138,6 @@ bool lpc546xx_probe(target_s *t)
 	uint32_t flash_size = 0;
 	uint32_t sram123_size = 0;
 
-#ifdef USE_LUT
 	const struct lpc546xx_device *device = lpc546xx_get_device(chipid);
 	if (!device)
 		return false;
@@ -154,32 +149,6 @@ bool lpc546xx_probe(target_s *t)
 	 * J512 parts also have 32kB SRAM2 & 32kB SRAM3 (total 96kB "upper" SRAM123)
 	 */
 	sram123_size = device->sram123_kbytes * 1024U;
-
-#else
-	switch (chipid) {
-	case 0x7f954605U:
-	case 0x7f954606U:
-	case 0x7f954607U:
-	case 0x7f954616U:
-		t->driver = "LPC546xxJ256";
-		flash_size = 0x40000;
-		sram123_size = 0x8000;
-		break;
-	case 0xfff54605U:
-	case 0xfff54606U:
-	case 0xfff54607U:
-	case 0xfff54608U:
-	case 0xfff54616U:
-	case 0xfff54618U:
-	case 0xfff54628U:
-		t->driver = "LPC546xxJ512";
-		flash_size = 0x80000;
-		sram123_size = 0x18000;
-		break;
-	default:
-		return false;
-	}
-#endif
 
 	t->mass_erase = lpc546xx_mass_erase;
 	lpc546xx_add_flash(t, IAP_ENTRYPOINT_LOCATION, 0, 0x0, flash_size, 0x8000);
