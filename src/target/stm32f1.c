@@ -262,7 +262,8 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	 * assuming default split ZW=256 SRAM=384.
 	 * AT32F437 also have a working "EMAC" (Ethernet MAC)
 	 */
-	uint32_t flash_size_kb = 0;
+	uint32_t flash_size_bank1 = 0;
+	uint32_t flash_size_bank2 = 0;
 	uint32_t sector_size = 0;
 	switch (part_id) {
 	// 0x70084000U parts with 4KB sectors:
@@ -275,7 +276,8 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	case 0x0552U: // LQFP100 w/Eth
 	case 0x0555U: // LQFP64 w/Eth
 		// Flash (G): 4032 KB in 2 banks (2048+1984), 4KB per sector.
-		flash_size_kb = 4032;
+		flash_size_bank1 = 2048U * 1024U;
+		flash_size_bank2 = 1984U * 1024U;
 		sector_size = 4096;
 		break;
 	case 0x0598U: // LQFP144
@@ -287,7 +289,7 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	case 0x059eU: // LQFP100 w/Eth
 	case 0x059fU: // LQFP64 w/Eth
 		// Flash (D): 448 KB, only bank 1, 4KB per sector.
-		flash_size_kb = 448;
+		flash_size_bank1 = 448U * 1024U;
 		sector_size = 4096;
 		break;
 	// 0x70083000U parts with 2KB sectors:
@@ -300,7 +302,8 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	case 0x0353U: // LQFP100 w/Eth
 	case 0x0356U: // LQFP64 w/Eth
 		// Flash (M): 1024 KB in 2 banks (equal), 2KB per sector.
-		flash_size_kb = 1024;
+		flash_size_bank1 = 512U * 1024U;
+		flash_size_bank2 = 512U * 1024U;
 		sector_size = 2048;
 		break;
 	case 0x0242U: // LQFP144
@@ -312,7 +315,7 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	case 0x0254U: // LQFP100 w/Eth
 	case 0x0257U: // LQFP64 w/Eth
 		// Flash (C): 256 KB, only bank 1, 2KB per sector.
-		flash_size_kb = 256;
+		flash_size_bank1 = 256U * 1024U;
 		sector_size = 2048;
 		break;
 	default:
@@ -323,7 +326,10 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	 * Block erase operates on 64 KB at once for all parts.
 	 * Using here only sector erase (page erase) for compatibility.
 	 */
-	stm32f1_add_flash(target, 0x08000000, flash_size_kb * 1024U, sector_size);
+	stm32f1_add_flash(target, 0x08000000, flash_size_bank1, sector_size);
+	if (flash_size_bank2 > 0)
+		stm32f1_add_flash(target, 0x08000000 + flash_size_bank1, flash_size_bank2, sector_size);
+
 	// SRAM1 (64KB) can be remapped to 0x10000000.
 	target_add_ram(target, 0x20000000, 64U * 1024U);
 	// SRAM2 (384-64=320 KB default).
