@@ -32,6 +32,45 @@
 #include "target_internal.h"
 #include "cortexm.h"
 
+static bool at32f43_flash_erase(target_flash_s *flash, target_addr_t addr, size_t len);
+static bool at32f43_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len);
+static bool at32f43_mass_erase(target_s *target);
+
+/* Flash memory controller register map */
+#define AT32F435_FLASH_REG_BASE 0x40023c00U
+#define AT32F435_FLASH_UNLOCK   (AT32F435_FLASH_REG_BASE + 0x04U)
+#define AT32F435_FLASH_STS      (AT32F435_FLASH_REG_BASE + 0x0cU)
+#define AT32F435_FLASH_CTRL     (AT32F435_FLASH_REG_BASE + 0x10U)
+#define AT32F435_FLASH_ADDR     (AT32F435_FLASH_REG_BASE + 0x14U)
+//#define AT32F435_FLASH_UNLOCK2  (AT32F435_FLASH_REG_BASE + 0x44U)
+//#define AT32F435_FLASH_STS2     (AT32F435_FLASH_REG_BASE + 0x4cU)
+//#define AT32F435_FLASH_CTRL2    (AT32F435_FLASH_REG_BASE + 0x50U)
+//#define AT32F435_FLASH_ADDR2    (AT32F435_FLASH_REG_BASE + 0x54U)
+
+#define FLASH_BANK1_REG_OFFSET 0x00U
+#define FLASH_BANK2_REG_OFFSET 0x40U
+//#define FLASH_BANK_SPLIT_2K    0x08080000U
+//#define FLASH_BANK_SPLIT_4K    0x08200000U
+
+/* Flash registers bit fields */
+#define FLASH_CTRL_FPRGM   (1U << 0U)
+#define FLASH_CTRL_SECERS  (1U << 1U)
+#define FLASH_CTRL_BANKERS (1U << 2U)
+#define FLASH_CTRL_ERSTR   (1U << 6U)
+#define FLASH_CTRL_OPLK    (1U << 7U)
+//#define FLASH_CTRL_BLKERS  (1U << 3U)
+/* CTRL bits [8:11] are reserved, parallellism x8/x16/x32 (don't care) */
+
+/* OBF is BSY, ODF is EOP */
+#define FLASH_STS_OBF     (1U << 0U)
+#define FLASH_STS_PRGMERR (1U << 2U)
+#define FLASH_STS_ODF     (1U << 5U)
+
+#define FLASH_SR_BSY (1U << 16U)
+
+#define KEY1 0x45670123U
+#define KEY2 0xcdef89abU
+
 #define DBGMCU_IDCODE 0xe0042000U
 
 #define AT32F4x_IDCODE_SERIES_MASK 0xfffff000U
@@ -39,33 +78,38 @@
 #define AT32F43_SERIES_4K          0x70084000U
 #define AT32F43_SERIES_2K          0x70083000U
 
-static void at32f43_add_flash(target_s *const t, const uint32_t addr, const size_t length, const size_t blocksize,
-	const uint8_t base_sector, const uint8_t split)
+typedef struct at32f43_flash {
+	target_flash_s flash;
+	target_addr_t bank_split; /* Address of first page of bank 2 */
+} at32f43_flash_s;
+
+static void at32f43_add_flash(target_s *const target, const target_addr_t addr, const size_t length,
+	const size_t pagesize, const target_addr_t bank_split)
 {
 	if (length == 0)
 		return;
 
-	target_flash_s *f = calloc(1, sizeof(*f));
-	if (!f) { /* calloc failed: heap exhaustion */
+	at32f43_flash_s *sf = calloc(1, sizeof(*sf));
+	if (!sf) { /* calloc failed: heap exhaustion */
 		DEBUG_ERROR("calloc: failed in %s\n", __func__);
 		return;
 	}
 
-	f->start = addr;
-	f->length = length;
-	f->blocksize = blocksize;
-	f->erase = NULL;
-	f->write = NULL;
-	(void)base_sector;
-	(void)split;
-	f->writesize = 1024;
-	f->erased = 0xffU;
-	target_add_flash(t, f);
+	target_flash_s *flash = &sf->flash;
+	flash->start = addr;
+	flash->length = length;
+	flash->blocksize = pagesize;
+	flash->erase = at32f43_flash_erase;
+	flash->write = at32f43_flash_write;
+	flash->writesize = 1024U; // limited by FLASH_WRITE_BUFFER_CEILING
+	flash->erased = 0xffU;
+	sf->bank_split = bank_split;
+	target_add_flash(target, flash);
 }
 
 static bool at32f43_detect(target_s *target, const uint16_t part_id)
 {
-	/* 
+	/*
 	 * AT32F435 EOPB0 ZW/NZW split reconfiguration unsupported,
 	 * assuming default split ZW=256 SRAM=384.
 	 * AT32F437 also have a working "EMAC" (Ethernet MAC)
@@ -134,11 +178,12 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	 * Block erase operates on 64 KB at once for all parts.
 	 * Using here only sector erase (page erase) for compatibility.
 	 */
-	at32f43_add_flash(target, 0x08000000, flash_size_bank1, sector_size, 0, 0);
 	if (flash_size_bank2 > 0) {
-		const uint16_t base_sector = flash_size_bank1 / sector_size;
-		at32f43_add_flash(target, 0x08000000 + flash_size_bank1, flash_size_bank2, sector_size, base_sector, 0);
-	}
+		const uint32_t bank_split = 0x08000000 + flash_size_bank1;
+		at32f43_add_flash(target, 0x08000000, flash_size_bank1, sector_size, bank_split);
+		at32f43_add_flash(target, bank_split, flash_size_bank2, sector_size, bank_split);
+	} else
+		at32f43_add_flash(target, 0x08000000, flash_size_bank1, sector_size, 0);
 
 	// SRAM1 (64KB) can be remapped to 0x10000000.
 	target_add_ram(target, 0x20000000, 64U * 1024U);
@@ -149,11 +194,11 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	 * Out of 640 KB SRAM present on silicon, at least 128 KB are always
 	 * dedicated to "zero-wait-state Flash". ZW region is limited by
 	 * specific part flash capacity (for 256, 448 KB) or at 512 KB.
-	 * AT32F435ZMT default EOPB0=0xffff05fa, 
+	 * AT32F435ZMT default EOPB0=0xffff05fa,
 	 * EOPB[0:2]=0b010 for 384 KB SRAM + 256 KB zero-wait-state flash.
 	 */
 	target->driver = "AT32F435";
-	target->mass_erase = NULL;
+	target->mass_erase = at32f43_mass_erase;
 	return true;
 }
 
@@ -172,4 +217,160 @@ bool at32f43x_probe(target_s *target)
 	if (series == AT32F43_SERIES_4K || series == AT32F43_SERIES_2K)
 		return at32f43_detect(target, part_id);
 	return false;
+}
+
+static bool at32f43_flash_unlock(target_s *const target, const uint32_t bank_reg_offset)
+{
+	if (target_mem_read32(target, AT32F435_FLASH_CTRL + bank_reg_offset) & FLASH_CTRL_OPLK) {
+		/* Enable FLASH operations in requested bank */
+		target_mem_write32(target, AT32F435_FLASH_UNLOCK + bank_reg_offset, KEY1);
+		target_mem_write32(target, AT32F435_FLASH_UNLOCK + bank_reg_offset, KEY2);
+	}
+	const uint32_t ctrlx = target_mem_read32(target, AT32F435_FLASH_CTRL + bank_reg_offset);
+	if (ctrlx & FLASH_CTRL_OPLK)
+		DEBUG_ERROR("%s failed, CTRLx: 0x%08" PRIx32 "\n", __func__, ctrlx);
+	return !(ctrlx & FLASH_CTRL_OPLK);
+}
+
+static inline void at32f43_flash_clear_eop(target_s *const target, const uint32_t bank_reg_offset)
+{
+	const uint32_t status = target_mem_read32(target, AT32F435_FLASH_STS + bank_reg_offset);
+	target_mem_write32(target, AT32F435_FLASH_STS + bank_reg_offset, status | FLASH_STS_ODF); /* ODF is W1C */
+}
+
+static bool at32f43_flash_busy_wait(
+	target_s *const target, const uint32_t bank_reg_offset, platform_timeout_s *const timeout)
+{
+	/* Read FLASH_STS to poll for Operation Busy Flag */
+	uint32_t status = FLASH_STS_OBF;
+	/* Checking for ODF/EOP requires methodically clearing the ODF */
+	while (!(status & FLASH_STS_ODF) && (status & FLASH_STS_OBF)) {
+		status = target_mem_read32(target, AT32F435_FLASH_STS + bank_reg_offset);
+		if (target_check_error(target)) {
+			DEBUG_ERROR("Lost communications with target\n");
+			return false;
+		}
+		if (timeout)
+			target_print_progress(timeout);
+	}
+	if (status & FLASH_STS_PRGMERR) {
+		DEBUG_ERROR("at32f43 flash error, STS: 0x%" PRIx32 "\n", status);
+		return false;
+	}
+	return !(status & FLASH_STS_PRGMERR);
+}
+
+static inline uint32_t at32f43_bank_offset_for(const target_addr_t addr, const target_addr_t bank_split)
+{
+	if (addr >= bank_split)
+		return FLASH_BANK2_REG_OFFSET;
+	return FLASH_BANK1_REG_OFFSET;
+}
+
+static bool at32f43_flash_erase(target_flash_s *flash, target_addr_t addr, size_t len)
+{
+	target_s *target = flash->t;
+	const at32f43_flash_s *const sf = (at32f43_flash_s *)flash;
+
+	/* Erase range begins in bank 1? Unlock bank 1 */
+	if (addr < sf->bank_split && !at32f43_flash_unlock(target, 0))
+		return false;
+	/* Erase range ends in bank 2? Unlock bank 2 */
+	const target_addr_t end = addr + len - 1U;
+	if (end >= sf->bank_split && !at32f43_flash_unlock(target, FLASH_BANK2_REG_OFFSET))
+		return false;
+
+	for (size_t offset = 0; offset < len; offset += flash->blocksize) {
+		const uint32_t bank_reg_offset = at32f43_bank_offset_for(addr + offset, sf->bank_split);
+		at32f43_flash_clear_eop(target, bank_reg_offset);
+
+		/* Prepare for page/sector erase */
+		target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_SECERS);
+		/* Select erased sector by its address */
+		target_mem_write32(target, AT32F435_FLASH_ADDR + bank_reg_offset, addr + offset);
+		/* Start sector erase operation */
+		target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_SECERS | FLASH_CTRL_ERSTR);
+
+		/* Datasheet: page erase takes 50ms (typ), 500ms (max) */
+		if (!at32f43_flash_busy_wait(target, bank_reg_offset, NULL))
+			return false;
+	}
+	return true;
+}
+
+static inline size_t at32f43_range_in_bank1(const target_addr_t addr, const size_t len, const target_addr_t bank_split)
+{
+	if (addr >= bank_split)
+		return 0;
+	if (addr + len > bank_split)
+		return bank_split - addr;
+	return len;
+}
+
+static bool at32f43_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len)
+{
+	target_s *target = flash->t;
+	const at32f43_flash_s *const sf = (at32f43_flash_s *)flash;
+	const size_t range = at32f43_range_in_bank1(dest, len, sf->bank_split);
+	const align_e psize = ALIGN_WORD;
+
+	/* There is something to write to bank 1 */
+	if (range) {
+		at32f43_flash_clear_eop(target, FLASH_BANK1_REG_OFFSET);
+
+		target_mem_write32(target, AT32F435_FLASH_CTRL, FLASH_CTRL_FPRGM);
+		cortexm_mem_write_sized(target, dest, src, range, psize);
+
+		/* Datasheet: flash programming takes 50us (typ), 200us (max) */
+		if (!at32f43_flash_busy_wait(target, FLASH_BANK1_REG_OFFSET, NULL))
+			return false;
+	}
+
+	/* For dual-bank targets write the remainder to bank 2 */
+	const size_t remainder = len - range;
+	if (sf->bank_split && remainder) {
+		const uint8_t *data = src;
+		at32f43_flash_clear_eop(target, FLASH_BANK2_REG_OFFSET);
+
+		target_mem_write32(target, AT32F435_FLASH_CTRL + FLASH_BANK2_REG_OFFSET, FLASH_CTRL_FPRGM);
+		cortexm_mem_write_sized(target, dest + range, data + range, remainder, psize);
+
+		if (!at32f43_flash_busy_wait(target, FLASH_BANK2_REG_OFFSET, NULL))
+			return false;
+	}
+
+	return true;
+}
+
+static bool at32f43_mass_erase_bank(
+	target_s *const target, const uint32_t bank_reg_offset, platform_timeout_s *const timeout)
+{
+	/* Unlock this bank */
+	if (!at32f43_flash_unlock(target, bank_reg_offset))
+		return false;
+	at32f43_flash_clear_eop(target, bank_reg_offset);
+
+	/* Flash mass erase start instruction */
+	target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_BANKERS);
+	target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_BANKERS | FLASH_CTRL_ERSTR);
+
+	return at32f43_flash_busy_wait(target, bank_reg_offset, timeout);
+}
+
+static bool at32f43_mass_erase(target_s *target)
+{
+	if (!at32f43_flash_unlock(target, FLASH_BANK1_REG_OFFSET))
+		return false;
+
+	/* Datasheet: bank erase takes seconds to complete */
+	platform_timeout_s timeout;
+	platform_timeout_set(&timeout, 500);
+	if (!at32f43_mass_erase_bank(target, FLASH_BANK1_REG_OFFSET, &timeout))
+		return false;
+
+	/* For dual-bank targets, mass erase bank 2 as well */
+	const at32f43_flash_s *const sf = (at32f43_flash_s *)target->flash;
+	if (sf->bank_split)
+		return at32f43_mass_erase_bank(target, FLASH_BANK2_REG_OFFSET, &timeout);
+	return true;
 }
