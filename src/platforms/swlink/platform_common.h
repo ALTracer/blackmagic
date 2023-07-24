@@ -24,5 +24,6 @@
 #include <stdint.h>
 
 uint8_t detect_rev(void);
+void platform_detach_usb(void);
 
 #endif /*PLATFORMS_SWLINK_PLATFORM_COMMON_H*/

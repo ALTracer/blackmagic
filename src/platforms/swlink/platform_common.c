@@ -64,15 +64,7 @@ uint8_t detect_rev(void)
 #endif
 		break;
 	}
-	/*
-	 * Disconnect USB after reset:
-	 * Pull USB_DP low. Device will reconnect automatically
-	 * when USB is set up later, as Pull-Up is hard wired
-	 */
-	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, GPIO12);
-	gpio_clear(GPIOA, GPIO12);
-	rcc_periph_reset_pulse(RST_USB);
-	rcc_periph_clock_enable(RCC_USB);
+	platform_detach_usb();
 
 	return revision;
 }
@@ -86,4 +78,21 @@ void platform_request_boot(void)
 	 */
 	gpio_set_mode(GPIOA, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, GPIO1);
 	SCB_VTOR = 0;
+}
+
+void platform_detach_usb(void)
+{
+	/*
+	 * Disconnect USB after reset:
+	 * Pull USB_DP low. Device will reconnect automatically
+	 * when USB is set up later, as Pull-Up is hard wired
+	 */
+	rcc_periph_clock_enable(RCC_USB);
+	rcc_periph_reset_pulse(RST_USB);
+
+	rcc_periph_clock_enable(RCC_GPIOA);
+	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, GPIO12);
+	gpio_clear(GPIOA, GPIO12);
+	for (volatile uint32_t counter = 10000; counter > 0; --counter)
+		continue;
 }
