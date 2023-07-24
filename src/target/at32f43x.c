@@ -32,8 +32,10 @@
 #include "target_internal.h"
 #include "cortexm.h"
 
+static bool at32f43_flash_prepare(target_flash_s *flash);
 static bool at32f43_flash_erase(target_flash_s *flash, target_addr_t addr, size_t len);
 static bool at32f43_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len);
+static bool at32f43_flash_done(target_flash_s *flash);
 static bool at32f43_mass_erase(target_s *target);
 
 /* Flash memory controller register map */
@@ -81,10 +83,11 @@ static bool at32f43_mass_erase(target_s *target);
 typedef struct at32f43_flash {
 	target_flash_s flash;
 	target_addr_t bank_split; /* Address of first page of bank 2 */
+	uint32_t bank_reg_offset; /* Flash register offset for this bank */
 } at32f43_flash_s;
 
 static void at32f43_add_flash(target_s *const target, const target_addr_t addr, const size_t length,
-	const size_t pagesize, const target_addr_t bank_split)
+	const size_t pagesize, const target_addr_t bank_split, const uint32_t bank_reg_offset)
 {
 	if (length == 0)
 		return;
@@ -99,11 +102,14 @@ static void at32f43_add_flash(target_s *const target, const target_addr_t addr, 
 	flash->start = addr;
 	flash->length = length;
 	flash->blocksize = pagesize;
+	flash->prepare = at32f43_flash_prepare;
 	flash->erase = at32f43_flash_erase;
 	flash->write = at32f43_flash_write;
-	flash->writesize = 1024U; // limited by FLASH_WRITE_BUFFER_CEILING
+	flash->done = at32f43_flash_done;
+	flash->writesize = 4U;
 	flash->erased = 0xffU;
 	sf->bank_split = bank_split;
+	sf->bank_reg_offset = bank_reg_offset;
 	target_add_flash(target, flash);
 }
 
@@ -127,7 +133,7 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	case 0x054fU: // LQFP144 w/Eth
 	case 0x0552U: // LQFP100 w/Eth
 	case 0x0555U: // LQFP64 w/Eth
-		// Flash (G): 4032 KB in 2 banks (2048+1984), 4KB per sector.
+		// Flash (M): 4032 KB in 2 banks (2048+1984), 4KB per sector.
 		flash_size_bank1 = 2048U * 1024U;
 		flash_size_bank2 = 1984U * 1024U;
 		sector_size = 4096;
@@ -153,7 +159,7 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	case 0x0350U: // LQFP144 w/Eth
 	case 0x0353U: // LQFP100 w/Eth
 	case 0x0356U: // LQFP64 w/Eth
-		// Flash (M): 1024 KB in 2 banks (equal), 2KB per sector.
+		// Flash (G): 1024 KB in 2 banks (equal), 2KB per sector.
 		flash_size_bank1 = 512U * 1024U;
 		flash_size_bank2 = 512U * 1024U;
 		sector_size = 2048;
@@ -180,10 +186,10 @@ static bool at32f43_detect(target_s *target, const uint16_t part_id)
 	 */
 	if (flash_size_bank2 > 0) {
 		const uint32_t bank_split = 0x08000000 + flash_size_bank1;
-		at32f43_add_flash(target, 0x08000000, flash_size_bank1, sector_size, bank_split);
-		at32f43_add_flash(target, bank_split, flash_size_bank2, sector_size, bank_split);
+		at32f43_add_flash(target, 0x08000000, flash_size_bank1, sector_size, bank_split, FLASH_BANK1_REG_OFFSET);
+		at32f43_add_flash(target, bank_split, flash_size_bank2, sector_size, bank_split, FLASH_BANK2_REG_OFFSET);
 	} else
-		at32f43_add_flash(target, 0x08000000, flash_size_bank1, sector_size, 0);
+		at32f43_add_flash(target, 0x08000000, flash_size_bank1, sector_size, 0, FLASH_BANK1_REG_OFFSET);
 
 	// SRAM1 (64KB) can be remapped to 0x10000000.
 	target_add_ram(target, 0x20000000, 64U * 1024U);
@@ -232,6 +238,20 @@ static bool at32f43_flash_unlock(target_s *const target, const uint32_t bank_reg
 	return !(ctrlx & FLASH_CTRL_OPLK);
 }
 
+static bool at32f43_flash_lock(target_s *const target, const uint32_t bank_reg_offset)
+{
+	uint32_t ctrlx_temp = target_mem_read32(target, AT32F435_FLASH_CTRL + bank_reg_offset);
+	if ((ctrlx_temp & FLASH_CTRL_OPLK) == 0U) {
+		/* Disable FLASH operations in requested bank */
+		ctrlx_temp |= FLASH_CTRL_OPLK;
+		target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, ctrlx_temp);
+	}
+	const uint32_t ctrlx = target_mem_read32(target, AT32F435_FLASH_CTRL + bank_reg_offset);
+	if ((ctrlx & FLASH_CTRL_OPLK) == 0U)
+		DEBUG_ERROR("%s failed, CTRLx: 0x%08" PRIx32 "\n", __func__, ctrlx);
+	return (ctrlx & FLASH_CTRL_OPLK);
+}
+
 static inline void at32f43_flash_clear_eop(target_s *const target, const uint32_t bank_reg_offset)
 {
 	const uint32_t status = target_mem_read32(target, AT32F435_FLASH_STS + bank_reg_offset);
@@ -258,6 +278,25 @@ static bool at32f43_flash_busy_wait(
 		return false;
 	}
 	return !(status & FLASH_STS_PRGMERR);
+}
+
+static bool at32f43_flash_prepare(target_flash_s *flash)
+{
+	target_s *target = flash->t;
+	bool result = true;
+	result &= at32f43_flash_unlock(target, 0);
+	result &= at32f43_flash_unlock(target, FLASH_BANK2_REG_OFFSET);
+	return result;
+}
+
+static bool at32f43_flash_done(target_flash_s *flash)
+{
+	target_s *target = flash->t;
+	/* Return to read-only */
+	bool result = true;
+	result &= at32f43_flash_lock(target, 0);
+	result &= at32f43_flash_lock(target, FLASH_BANK2_REG_OFFSET);
+	return result;
 }
 
 static inline uint32_t at32f43_bank_offset_for(const target_addr_t addr, const target_addr_t bank_split)
@@ -298,46 +337,23 @@ static bool at32f43_flash_erase(target_flash_s *flash, target_addr_t addr, size_
 	return true;
 }
 
-static inline size_t at32f43_range_in_bank1(const target_addr_t addr, const size_t len, const target_addr_t bank_split)
-{
-	if (addr >= bank_split)
-		return 0;
-	if (addr + len > bank_split)
-		return bank_split - addr;
-	return len;
-}
-
 static bool at32f43_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len)
 {
 	target_s *target = flash->t;
 	const at32f43_flash_s *const sf = (at32f43_flash_s *)flash;
-	const size_t range = at32f43_range_in_bank1(dest, len, sf->bank_split);
+	const uint32_t bank_reg_offset = sf->bank_reg_offset;
 	const align_e psize = ALIGN_WORD;
 
-	/* There is something to write to bank 1 */
-	if (range) {
-		at32f43_flash_clear_eop(target, FLASH_BANK1_REG_OFFSET);
+	/* Write to bank corresponding to flash region */
 
-		target_mem_write32(target, AT32F435_FLASH_CTRL, FLASH_CTRL_FPRGM);
-		cortexm_mem_write_sized(target, dest, src, range, psize);
+	at32f43_flash_clear_eop(target, bank_reg_offset);
 
-		/* Datasheet: flash programming takes 50us (typ), 200us (max) */
-		if (!at32f43_flash_busy_wait(target, FLASH_BANK1_REG_OFFSET, NULL))
-			return false;
-	}
+	target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_FPRGM);
+	cortexm_mem_write_sized(target, dest, src, len, psize);
 
-	/* For dual-bank targets write the remainder to bank 2 */
-	const size_t remainder = len - range;
-	if (sf->bank_split && remainder) {
-		const uint8_t *data = src;
-		at32f43_flash_clear_eop(target, FLASH_BANK2_REG_OFFSET);
-
-		target_mem_write32(target, AT32F435_FLASH_CTRL + FLASH_BANK2_REG_OFFSET, FLASH_CTRL_FPRGM);
-		cortexm_mem_write_sized(target, dest + range, data + range, remainder, psize);
-
-		if (!at32f43_flash_busy_wait(target, FLASH_BANK2_REG_OFFSET, NULL))
-			return false;
-	}
+	/* Datasheet: flash programming takes 50us (typ), 200us (max) */
+	if (!at32f43_flash_busy_wait(target, bank_reg_offset, NULL))
+		return false;
 
 	return true;
 }
