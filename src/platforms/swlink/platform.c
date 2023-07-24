@@ -178,7 +178,7 @@ const char *platform_target_voltage(void)
 	return NULL;
 }
 
-void set_idle_state(int state)
+void set_idle_state(bool state)
 {
 	switch (rev) {
 	case 0:

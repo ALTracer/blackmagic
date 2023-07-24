@@ -27,7 +27,8 @@
 #include "platform.h"
 
 uintptr_t app_address = 0x08002000U;
-uint32_t rev;
+static uint32_t rev;
+static int dfu_activity_counter;
 
 void dfu_detach(void)
 {
@@ -88,18 +89,49 @@ int main(void)
 	dfu_main();
 }
 
+void set_idle_state(bool state)
+{
+	switch (rev) {
+	case 0:
+		gpio_set_val(GPIOA, GPIO8, state);
+		break;
+	case 1:
+		gpio_set_val(LED_PORT, LED_IDLE_RUN, !state);
+		break;
+	}
+}
+
 void dfu_event(void)
 {
+	static bool idle_state = false;
+	/* Ask systick to pause blinking for 1 second */
+	dfu_activity_counter = 10;
+	/* Blink it ourselves */
+	set_idle_state(idle_state);
+	idle_state = !idle_state;
 }
 
 void sys_tick_handler(void)
 {
-	switch (rev) {
+	static int count = 0;
+	if (dfu_activity_counter > 0) {
+		dfu_activity_counter--;
+		return;
+	}
+
+	switch (count) {
 	case 0:
-		gpio_toggle(GPIOA, GPIO8);
+		/* Reload downcounter */
+		count = 10;
+		set_idle_state(false);
 		break;
 	case 1:
-		gpio_toggle(GPIOC, GPIO13);
+		count--;
+		/* Blink like a very slow PWM */
+		set_idle_state(true);
+		break;
+	default:
+		count--;
 		break;
 	}
 }
