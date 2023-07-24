@@ -25,6 +25,7 @@
 
 #include "usbdfu.h"
 #include "platform.h"
+#include "platform_common.h"
 
 uintptr_t app_address = 0x08002000U;
 static uint32_t rev;
@@ -32,13 +33,7 @@ static int dfu_activity_counter;
 
 void dfu_detach(void)
 {
-	/* Disconnect USB cable by resetting USB Device
-	   and pulling USB_DP low*/
-	rcc_periph_reset_pulse(RST_USB);
-	rcc_periph_clock_enable(RCC_USB);
-	rcc_periph_clock_enable(RCC_GPIOA);
-	gpio_clear(GPIOA, GPIO12);
-	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, GPIO12);
+	platform_detach_usb();
 	scb_reset_system();
 }
 

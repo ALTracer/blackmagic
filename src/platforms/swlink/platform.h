@@ -176,6 +176,4 @@ extern bool debug_bmp;
 extern void set_idle_state(bool state);
 #define SET_IDLE_STATE(state) set_idle_state(state)
 
-extern uint8_t detect_rev(void);
-
 #endif /* PLATFORMS_SWLINK_PLATFORM_H */
