@@ -43,6 +43,9 @@ void dfu_detach(void)
 
 int main(void)
 {
+	/* Map SWJ back for DFU debugging (BMP swlink unmaps them) */
+	gpio_primary_remap(AFIO_MAPR_SWJ_CFG_FULL_SWJ, 0U);
+
 	/* Check the force bootloader pin*/
 	bool normal_boot = 0;
 	rev = detect_rev();

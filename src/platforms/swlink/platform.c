@@ -52,7 +52,6 @@ int platform_hwversion(void)
 
 void platform_init(void)
 {
-	uint32_t data;
 	SCS_DEMCR |= SCS_DEMCR_VC_MON_EN;
 	rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE8_72MHZ]);
 	rev = detect_rev();
@@ -61,10 +60,8 @@ void platform_init(void)
 	rcc_periph_clock_enable(RCC_CRC);
 
 	/* Unmap JTAG Pins so we can reuse as GPIO */
-	data = AFIO_MAPR;
-	data &= ~AFIO_MAPR_SWJ_MASK;
-	data |= AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_OFF;
-	AFIO_MAPR = data;
+	gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_OFF, 0U);
+
 	/* Setup JTAG GPIO ports */
 	gpio_set_mode(TMS_PORT, GPIO_MODE_OUTPUT_10_MHZ, GPIO_CNF_INPUT_FLOAT, TMS_PIN);
 	gpio_set_mode(TCK_PORT, GPIO_MODE_OUTPUT_10_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, TCK_PIN);
@@ -100,10 +97,10 @@ void platform_init(void)
 	 * TIM2_CH1_ETR -> PA15 (TDI, set as output above)
 	 * TIM2_CH2     -> PB3  (TDO)
 	 */
-	data = AFIO_MAPR;
-	data &= ~AFIO_MAPR_TIM2_REMAP_FULL_REMAP;
-	data |= AFIO_MAPR_TIM2_REMAP_PARTIAL_REMAP1;
-	AFIO_MAPR = data;
+	gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_OFF, AFIO_MAPR_TIM2_REMAP_PARTIAL_REMAP1);
+
+	/* Remap USART1 from PA9/PA10 to PB6/PB7 */
+	gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_OFF, AFIO_MAPR_USART1_REMAP);
 
 	/* Relocate interrupt vector table here */
 	extern uint32_t vector_table;
