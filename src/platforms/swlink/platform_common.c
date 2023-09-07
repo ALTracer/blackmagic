@@ -22,6 +22,7 @@
 #include <libopencm3/stm32/gpio.h>
 
 #include "platform_common.h"
+#include "platform.h"
 
 /* Return 0 for the ST-Link on a STM8S Discovery board and 1 for Bluepill */
 uint8_t detect_rev()
@@ -52,9 +53,14 @@ uint8_t detect_rev()
 		gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO8);
 		break;
 	case 1:
+#ifdef BLUEPILLPLUS
+		gpio_clear(LED_PORT, LED_IDLE_RUN); /* LED on Bluepill-Plus is active high. */
+		gpio_set_mode(LED_PORT, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, LED_IDLE_RUN);
+#else
 		rcc_periph_clock_enable(RCC_GPIOC);
-		gpio_set(GPIOC, GPIO13); /* LED on Blupill is active low! */
-		gpio_set_mode(GPIOC, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO13);
+		gpio_set(LED_PORT, LED_IDLE_RUN); /* LED on Blupill is active low! */
+		gpio_set_mode(LED_PORT, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, LED_IDLE_RUN);
+#endif
 		break;
 	}
 	/*

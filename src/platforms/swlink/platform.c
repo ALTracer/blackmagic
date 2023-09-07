@@ -39,8 +39,8 @@
 
 #include "platform_common.h"
 
-uint32_t led_error_port;
-uint16_t led_error_pin;
+static uint32_t led_idlerun_port;
+static uint16_t led_idlerun_pin;
 static uint8_t rev;
 
 static void adc_init(void);
@@ -75,13 +75,18 @@ void platform_init(void)
 	switch (rev) {
 	case 0:
 		/* LED GPIO already set in detect_rev() */
-		led_error_port = GPIOA;
-		led_error_pin = GPIO8;
+		led_idlerun_port = GPIOA;
+		led_idlerun_pin = GPIO8;
 		adc_init();
 		break;
 	case 1:
-		led_error_port = GPIOC;
-		led_error_pin = GPIO13;
+#ifdef BLUEPILLPLUS
+		led_idlerun_port = GPIOB;
+		led_idlerun_pin = GPIO2;
+#else
+		led_idlerun_port = GPIOC;
+		led_idlerun_pin = GPIO13;
+#endif
 		/* Enable MCO Out on PA8 */
 		RCC_CFGR &= ~(0xfU << 24U);
 		RCC_CFGR |= (RCC_CFGR_MCO_HSE << 24U);
@@ -183,7 +188,7 @@ void set_idle_state(int state)
 		gpio_set_val(GPIOA, GPIO8, state);
 		break;
 	case 1:
-		gpio_set_val(GPIOC, GPIO13, !state);
+		gpio_set_val(led_idlerun_port, led_idlerun_pin, !state);
 		break;
 	}
 }

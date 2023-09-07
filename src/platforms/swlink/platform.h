@@ -155,11 +155,25 @@ extern bool debug_bmp;
 #define OB_SPI_CS_PORT GPIOA
 #define OB_SPI_CS      GPIO4
 
+/* WeAct Studio BluePill-Plus has LED on PB2/BOOT1 */
+#ifdef BLUEPILLPLUS
+#define LED_PORT     GPIOB
+#define LED_IDLE_RUN GPIO2
+#else
 #define LED_PORT     GPIOC
-#define LED_IDLE_RUN GPIO15
-#define SET_RUN_STATE(state)
+#define LED_IDLE_RUN GPIO13
+#endif
+
+/* No LED_ERROR */
 #define SET_ERROR_STATE(state)
-extern void set_idle_state(int state);
+
+/* Delegate the run-blinking to systick_handler */
+#define SET_RUN_STATE(state)      \
+	{                             \
+		running_status = (state); \
+	}
+/* Indicate idle on the runtime-detected LED */
+extern void set_idle_state(bool state);
 #define SET_IDLE_STATE(state) set_idle_state(state)
 
 extern uint8_t detect_rev(void);
