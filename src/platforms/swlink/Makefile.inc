@@ -17,6 +17,10 @@ else
 LDFLAGS += --specs=nosys.specs
 endif
 
+ifeq ($(BLUEPILLPLUS), 1)
+CFLAGS += -DBLUEPILLPLUS
+endif
+
 VPATH += platforms/common/stm32
 
 SRC +=          \
