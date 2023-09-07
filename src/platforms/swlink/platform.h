@@ -155,6 +155,15 @@ extern bool debug_bmp;
 
 #endif /* TRACESWO_PROTOCOL */
 
+/* SPI1: PA4/5/6/7 to onboard w25q64 */
+#define OB_SPI         SPI1
+#define OB_SPI_PORT    GPIOA
+#define OB_SPI_SCLK    GPIO5
+#define OB_SPI_MISO    GPIO6
+#define OB_SPI_MOSI    GPIO7
+#define OB_SPI_CS_PORT GPIOA
+#define OB_SPI_CS      GPIO4
+
 #define LED_PORT     GPIOC
 #define LED_IDLE_RUN GPIO15
 #define SET_RUN_STATE(state)
