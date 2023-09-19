@@ -701,8 +701,9 @@ static bool cmd_meminfo(target_s *t, int argc, const char **argv)
 
 #if PC_HOSTED == 0
 	extern ptrdiff_t helper_stack_used(void);
+	extern ptrdiff_t helper_stack_max(void);
 
-	gdb_outf("BMD Probe RAM stats: stack used = %5d\n", helper_stack_used());
+	gdb_outf("BMD Probe RAM stats: stack used = %5d, max = %5d\n", helper_stack_used(), helper_stack_max());
 
 	/* Emulate malloc_stats() call. Don't care about mmap in freestanding. */
 	struct mallinfo local_mallinfo = {0};

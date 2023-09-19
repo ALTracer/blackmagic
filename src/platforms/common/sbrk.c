@@ -60,6 +60,26 @@ ptrdiff_t helper_stack_used(void)
 	return stack_top - stack_ptr;
 }
 
+#define STACK_CHECK_PATTERN 0x5a5a5a5a
+#define STACK_SIZE_RESERVED 4096U
+
+/* Count how many uints were overwritten in a fully descending stack */
+ptrdiff_t helper_stack_max(void)
+{
+	register const unsigned int *stack_ptr __asm__("sp");
+	const unsigned int *stack_top = &_stack;
+
+	unsigned int used_max = 0;
+	unsigned int *p = stack_top;
+
+	while (*p != STACK_CHECK_PATTERN) {
+		used_max += sizeof(unsigned int);
+		p--;
+	}
+
+	return used_max;
+}
+
 #include "platform.h"
 
 /*
@@ -79,5 +99,17 @@ void platform_check_stack_overflow(void)
 	DEBUG_ERROR("Stack overflows the heap (at %p)\n", stack_ptr);
 	while (1) {
 		gpio_toggle(LED_PORT, LED_IDLE_RUN);
+	}
+}
+
+/* Fill a fixed size stack with a known value for later checking */
+void platform_colorize_stack(void)
+{
+	register const char *stack_ptr __asm__("sp");
+	const unsigned int *stack_top = &_stack;
+
+	unsigned int *p = stack_top - STACK_SIZE_RESERVED;
+	while (*p < stack_ptr - 4) {
+		*p = STACK_CHECK_PATTERN;
 	}
 }
