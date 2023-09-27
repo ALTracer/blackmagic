@@ -328,18 +328,14 @@ static bool at32f43_flash_write(target_flash_s *target_flash, target_addr_t dest
 	const uint32_t bank_reg_offset = flash->bank_reg_offset;
 	const align_e psize = ALIGN_WORD;
 
-	/* Write to bank corresponding to flash region */
-
 	at32f43_flash_clear_eop(target, bank_reg_offset);
 
+	/* Write to bank corresponding to flash region */
 	target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_FPRGM);
 	cortexm_mem_write_sized(target, dest, src, len, psize);
 
 	/* Datasheet: flash programming takes 50us (typ), 200us (max) */
-	if (!at32f43_flash_busy_wait(target, bank_reg_offset, NULL))
-		return false;
-
-	return true;
+	return at32f43_flash_busy_wait(target, bank_reg_offset, NULL);
 }
 
 static bool at32f43_mass_erase_bank(
