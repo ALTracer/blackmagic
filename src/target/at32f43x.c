@@ -81,7 +81,7 @@ static bool at32f43_mass_erase(target_s *target);
 #define AT32F43_SERIES_2K          0x70083000U
 
 typedef struct at32f43_flash {
-	target_flash_s flash;
+	target_flash_s target_flash;
 	target_addr_t bank_split; /* Address of first page of bank 2 */
 	uint32_t bank_reg_offset; /* Flash register offset for this bank */
 } at32f43_flash_s;
@@ -92,25 +92,25 @@ static void at32f43_add_flash(target_s *const target, const target_addr_t addr, 
 	if (length == 0)
 		return;
 
-	at32f43_flash_s *sf = calloc(1, sizeof(*sf));
-	if (!sf) { /* calloc failed: heap exhaustion */
+	at32f43_flash_s *flash = calloc(1, sizeof(*flash));
+	if (!flash) { /* calloc failed: heap exhaustion */
 		DEBUG_ERROR("calloc: failed in %s\n", __func__);
 		return;
 	}
 
-	target_flash_s *flash = &sf->flash;
-	flash->start = addr;
-	flash->length = length;
-	flash->blocksize = pagesize;
-	flash->prepare = at32f43_flash_prepare;
-	flash->erase = at32f43_flash_erase;
-	flash->write = at32f43_flash_write;
-	flash->done = at32f43_flash_done;
-	flash->writesize = 4U;
-	flash->erased = 0xffU;
-	sf->bank_split = bank_split;
-	sf->bank_reg_offset = bank_reg_offset;
-	target_add_flash(target, flash);
+	target_flash_s *target_flash = &flash->target_flash;
+	target_flash->start = addr;
+	target_flash->length = length;
+	target_flash->blocksize = pagesize;
+	target_flash->prepare = at32f43_flash_prepare;
+	target_flash->erase = at32f43_flash_erase;
+	target_flash->write = at32f43_flash_write;
+	target_flash->done = at32f43_flash_done;
+	target_flash->writesize = 1024U;
+	target_flash->erased = 0xffU;
+	flash->bank_split = bank_split;
+	flash->bank_reg_offset = bank_reg_offset;
+	target_add_flash(target, target_flash);
 }
 
 static bool at32f43_detect(target_s *target, const uint16_t part_id)
@@ -280,18 +280,18 @@ static bool at32f43_flash_busy_wait(
 	return !(status & FLASH_STS_PRGMERR);
 }
 
-static bool at32f43_flash_prepare(target_flash_s *flash)
+static bool at32f43_flash_prepare(target_flash_s *target_flash)
 {
-	target_s *target = flash->t;
+	target_s *target = target_flash->t;
 	bool result = true;
 	result &= at32f43_flash_unlock(target, 0);
 	result &= at32f43_flash_unlock(target, FLASH_BANK2_REG_OFFSET);
 	return result;
 }
 
-static bool at32f43_flash_done(target_flash_s *flash)
+static bool at32f43_flash_done(target_flash_s *target_flash)
 {
-	target_s *target = flash->t;
+	target_s *target = target_flash->t;
 	/* Return to read-only */
 	bool result = true;
 	result &= at32f43_flash_lock(target, 0);
@@ -306,21 +306,21 @@ static inline uint32_t at32f43_bank_offset_for(const target_addr_t addr, const t
 	return FLASH_BANK1_REG_OFFSET;
 }
 
-static bool at32f43_flash_erase(target_flash_s *flash, target_addr_t addr, size_t len)
+static bool at32f43_flash_erase(target_flash_s *target_flash, target_addr_t addr, size_t len)
 {
-	target_s *target = flash->t;
-	const at32f43_flash_s *const sf = (at32f43_flash_s *)flash;
+	target_s *target = target_flash->t;
+	const at32f43_flash_s *const flash = (at32f43_flash_s *)target_flash;
 
 	/* Erase range begins in bank 1? Unlock bank 1 */
-	if (addr < sf->bank_split && !at32f43_flash_unlock(target, 0))
+	if (addr < flash->bank_split && !at32f43_flash_unlock(target, 0))
 		return false;
 	/* Erase range ends in bank 2? Unlock bank 2 */
 	const target_addr_t end = addr + len - 1U;
-	if (end >= sf->bank_split && !at32f43_flash_unlock(target, FLASH_BANK2_REG_OFFSET))
+	if (end >= flash->bank_split && !at32f43_flash_unlock(target, FLASH_BANK2_REG_OFFSET))
 		return false;
 
-	for (size_t offset = 0; offset < len; offset += flash->blocksize) {
-		const uint32_t bank_reg_offset = at32f43_bank_offset_for(addr + offset, sf->bank_split);
+	for (size_t offset = 0; offset < len; offset += target_flash->blocksize) {
+		const uint32_t bank_reg_offset = at32f43_bank_offset_for(addr + offset, flash->bank_split);
 		at32f43_flash_clear_eop(target, bank_reg_offset);
 
 		/* Prepare for page/sector erase */
@@ -337,11 +337,11 @@ static bool at32f43_flash_erase(target_flash_s *flash, target_addr_t addr, size_
 	return true;
 }
 
-static bool at32f43_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len)
+static bool at32f43_flash_write(target_flash_s *target_flash, target_addr_t dest, const void *src, size_t len)
 {
-	target_s *target = flash->t;
-	const at32f43_flash_s *const sf = (at32f43_flash_s *)flash;
-	const uint32_t bank_reg_offset = sf->bank_reg_offset;
+	target_s *target = target_flash->t;
+	const at32f43_flash_s *const flash = (at32f43_flash_s *)target_flash;
+	const uint32_t bank_reg_offset = flash->bank_reg_offset;
 	const align_e psize = ALIGN_WORD;
 
 	/* Write to bank corresponding to flash region */
@@ -385,8 +385,8 @@ static bool at32f43_mass_erase(target_s *target)
 		return false;
 
 	/* For dual-bank targets, mass erase bank 2 as well */
-	const at32f43_flash_s *const sf = (at32f43_flash_s *)target->flash;
-	if (sf->bank_split)
+	const at32f43_flash_s *const flash = (at32f43_flash_s *)target->flash;
+	if (flash->bank_split)
 		return at32f43_mass_erase_bank(target, FLASH_BANK2_REG_OFFSET, &timeout);
 	return true;
 }
