@@ -301,24 +301,24 @@ static bool at32f43_flash_erase(target_flash_s *target_flash, target_addr_t addr
 	target_s *target = target_flash->t;
 	const at32f43_flash_s *const flash = (at32f43_flash_s *)target_flash;
 	const uint32_t bank_reg_offset = flash->bank_reg_offset;
-	if (!at32f43_flash_unlock(target, bank_reg_offset))
+
+	if (len != target_flash->blocksize) {
+		DEBUG_ERROR(
+			"%s: Requested erase length %zu does not match blocksize %zu!\n", __func__, len, target_flash->blocksize);
 		return false;
-
-	for (size_t offset = 0; offset < len; offset += target_flash->blocksize) {
-		at32f43_flash_clear_eop(target, bank_reg_offset);
-
-		/* Prepare for page/sector erase */
-		target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_SECERS);
-		/* Select erased sector by its address */
-		target_mem_write32(target, AT32F435_FLASH_ADDR + bank_reg_offset, addr + offset);
-		/* Start sector erase operation */
-		target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_SECERS | FLASH_CTRL_ERSTR);
-
-		/* Datasheet: page erase takes 50ms (typ), 500ms (max) */
-		if (!at32f43_flash_busy_wait(target, bank_reg_offset, NULL))
-			return false;
 	}
-	return true;
+
+	at32f43_flash_clear_eop(target, bank_reg_offset);
+
+	/* Prepare for page/sector erase */
+	target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_SECERS);
+	/* Select erased sector by its address */
+	target_mem_write32(target, AT32F435_FLASH_ADDR + bank_reg_offset, addr);
+	/* Start sector erase operation */
+	target_mem_write32(target, AT32F435_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_SECERS | FLASH_CTRL_ERSTR);
+
+	/* Datasheet: page erase takes 50ms (typ), 500ms (max) */
+	return at32f43_flash_busy_wait(target, bank_reg_offset, NULL);
 }
 
 static bool at32f43_flash_write(target_flash_s *target_flash, target_addr_t dest, const void *src, size_t len)
@@ -359,9 +359,6 @@ static bool at32f43_mass_erase_bank(
 
 static bool at32f43_mass_erase(target_s *target)
 {
-	if (!at32f43_flash_unlock(target, FLASH_BANK1_REG_OFFSET))
-		return false;
-
 	/* Datasheet: bank erase takes seconds to complete */
 	platform_timeout_s timeout;
 	platform_timeout_set(&timeout, 500);
