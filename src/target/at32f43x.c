@@ -44,15 +44,10 @@ static bool at32f43_mass_erase(target_s *target);
 #define AT32F435_FLASH_STS      (AT32F435_FLASH_REG_BASE + 0x0cU)
 #define AT32F435_FLASH_CTRL     (AT32F435_FLASH_REG_BASE + 0x10U)
 #define AT32F435_FLASH_ADDR     (AT32F435_FLASH_REG_BASE + 0x14U)
-//#define AT32F435_FLASH_UNLOCK2  (AT32F435_FLASH_REG_BASE + 0x44U)
-//#define AT32F435_FLASH_STS2     (AT32F435_FLASH_REG_BASE + 0x4cU)
-//#define AT32F435_FLASH_CTRL2    (AT32F435_FLASH_REG_BASE + 0x50U)
-//#define AT32F435_FLASH_ADDR2    (AT32F435_FLASH_REG_BASE + 0x54U)
+/* There is a second set of identical registers at +0x40 offset for Bank 2 */
 
 #define FLASH_BANK1_REG_OFFSET 0x00U
 #define FLASH_BANK2_REG_OFFSET 0x40U
-//#define FLASH_BANK_SPLIT_2K    0x08080000U
-//#define FLASH_BANK_SPLIT_4K    0x08200000U
 
 /* Flash registers bit fields */
 #define FLASH_CTRL_FPRGM   (1U << 0U)
@@ -60,7 +55,6 @@ static bool at32f43_mass_erase(target_s *target);
 #define FLASH_CTRL_BANKERS (1U << 2U)
 #define FLASH_CTRL_ERSTR   (1U << 6U)
 #define FLASH_CTRL_OPLK    (1U << 7U)
-//#define FLASH_CTRL_BLKERS  (1U << 3U)
 /* CTRL bits [8:11] are reserved, parallellism x8/x16/x32 (don't care) */
 
 /* OBF is BSY, ODF is EOP */
