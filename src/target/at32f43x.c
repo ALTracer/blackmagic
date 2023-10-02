@@ -50,22 +50,20 @@ static bool at32f43_mass_erase(target_s *target);
 #define AT32F43x_FLASH_BANK2_REG_OFFSET 0x40U
 
 /* Flash registers bit fields */
-#define FLASH_CTRL_FPRGM   (1U << 0U)
-#define FLASH_CTRL_SECERS  (1U << 1U)
-#define FLASH_CTRL_BANKERS (1U << 2U)
-#define FLASH_CTRL_ERSTR   (1U << 6U)
-#define FLASH_CTRL_OPLK    (1U << 7U)
+#define AT32F43x_FLASH_CTRL_FPRGM   (1U << 0U)
+#define AT32F43x_FLASH_CTRL_SECERS  (1U << 1U)
+#define AT32F43x_FLASH_CTRL_BANKERS (1U << 2U)
+#define AT32F43x_FLASH_CTRL_ERSTR   (1U << 6U)
+#define AT32F43x_FLASH_CTRL_OPLK    (1U << 7U)
 /* CTRL bits [8:11] are reserved, parallellism x8/x16/x32 (don't care) */
 
 /* OBF is BSY, ODF is EOP */
-#define FLASH_STS_OBF     (1U << 0U)
-#define FLASH_STS_PRGMERR (1U << 2U)
-#define FLASH_STS_ODF     (1U << 5U)
+#define AT32F43x_FLASH_STS_OBF     (1U << 0U)
+#define AT32F43x_FLASH_STS_PRGMERR (1U << 2U)
+#define AT32F43x_FLASH_STS_ODF     (1U << 5U)
 
-#define FLASH_SR_BSY (1U << 16U)
-
-#define KEY1 0x45670123U
-#define KEY2 0xcdef89abU
+#define AT32F43x_FLASH_KEY1 0x45670123U
+#define AT32F43x_FLASH_KEY2 0xcdef89abU
 
 #define DBGMCU_IDCODE 0xe0042000U
 
@@ -223,44 +221,44 @@ bool at32f43x_probe(target_s *target)
 
 static bool at32f43_flash_unlock(target_s *const target, const uint32_t bank_reg_offset)
 {
-	if (target_mem_read32(target, AT32F43x_FLASH_CTRL + bank_reg_offset) & FLASH_CTRL_OPLK) {
+	if (target_mem_read32(target, AT32F43x_FLASH_CTRL + bank_reg_offset) & AT32F43x_FLASH_CTRL_OPLK) {
 		/* Enable FLASH operations in requested bank */
-		target_mem_write32(target, AT32F43x_FLASH_UNLOCK + bank_reg_offset, KEY1);
-		target_mem_write32(target, AT32F43x_FLASH_UNLOCK + bank_reg_offset, KEY2);
+		target_mem_write32(target, AT32F43x_FLASH_UNLOCK + bank_reg_offset, AT32F43x_FLASH_KEY1);
+		target_mem_write32(target, AT32F43x_FLASH_UNLOCK + bank_reg_offset, AT32F43x_FLASH_KEY2);
 	}
 	const uint32_t ctrlx = target_mem_read32(target, AT32F43x_FLASH_CTRL + bank_reg_offset);
-	if (ctrlx & FLASH_CTRL_OPLK)
+	if (ctrlx & AT32F43x_FLASH_CTRL_OPLK)
 		DEBUG_ERROR("%s failed, CTRLx: 0x%08" PRIx32 "\n", __func__, ctrlx);
-	return !(ctrlx & FLASH_CTRL_OPLK);
+	return !(ctrlx & AT32F43x_FLASH_CTRL_OPLK);
 }
 
 static bool at32f43_flash_lock(target_s *const target, const uint32_t bank_reg_offset)
 {
 	uint32_t ctrlx_temp = target_mem_read32(target, AT32F43x_FLASH_CTRL + bank_reg_offset);
-	if ((ctrlx_temp & FLASH_CTRL_OPLK) == 0U) {
+	if ((ctrlx_temp & AT32F43x_FLASH_CTRL_OPLK) == 0U) {
 		/* Disable FLASH operations in requested bank */
-		ctrlx_temp |= FLASH_CTRL_OPLK;
+		ctrlx_temp |= AT32F43x_FLASH_CTRL_OPLK;
 		target_mem_write32(target, AT32F43x_FLASH_CTRL + bank_reg_offset, ctrlx_temp);
 	}
 	const uint32_t ctrlx = target_mem_read32(target, AT32F43x_FLASH_CTRL + bank_reg_offset);
-	if ((ctrlx & FLASH_CTRL_OPLK) == 0U)
+	if ((ctrlx & AT32F43x_FLASH_CTRL_OPLK) == 0U)
 		DEBUG_ERROR("%s failed, CTRLx: 0x%08" PRIx32 "\n", __func__, ctrlx);
-	return (ctrlx & FLASH_CTRL_OPLK);
+	return (ctrlx & AT32F43x_FLASH_CTRL_OPLK);
 }
 
 static inline void at32f43_flash_clear_eop(target_s *const target, const uint32_t bank_reg_offset)
 {
 	const uint32_t status = target_mem_read32(target, AT32F43x_FLASH_STS + bank_reg_offset);
-	target_mem_write32(target, AT32F43x_FLASH_STS + bank_reg_offset, status | FLASH_STS_ODF); /* ODF is W1C */
+	target_mem_write32(target, AT32F43x_FLASH_STS + bank_reg_offset, status | AT32F43x_FLASH_STS_ODF); /* ODF is W1C */
 }
 
 static bool at32f43_flash_busy_wait(
 	target_s *const target, const uint32_t bank_reg_offset, platform_timeout_s *const timeout)
 {
 	/* Read FLASH_STS to poll for Operation Busy Flag */
-	uint32_t status = FLASH_STS_OBF;
+	uint32_t status = AT32F43x_FLASH_STS_OBF;
 	/* Checking for ODF/EOP requires methodically clearing the ODF */
-	while (!(status & FLASH_STS_ODF) && (status & FLASH_STS_OBF)) {
+	while (!(status & AT32F43x_FLASH_STS_ODF) && (status & AT32F43x_FLASH_STS_OBF)) {
 		status = target_mem_read32(target, AT32F43x_FLASH_STS + bank_reg_offset);
 		if (target_check_error(target)) {
 			DEBUG_ERROR("Lost communications with target\n");
@@ -269,11 +267,11 @@ static bool at32f43_flash_busy_wait(
 		if (timeout)
 			target_print_progress(timeout);
 	}
-	if (status & FLASH_STS_PRGMERR) {
+	if (status & AT32F43x_FLASH_STS_PRGMERR) {
 		DEBUG_ERROR("at32f43 flash error, STS: 0x%" PRIx32 "\n", status);
 		return false;
 	}
-	return !(status & FLASH_STS_PRGMERR);
+	return !(status & AT32F43x_FLASH_STS_PRGMERR);
 }
 
 static bool at32f43_flash_prepare(target_flash_s *target_flash)
@@ -307,11 +305,12 @@ static bool at32f43_flash_erase(target_flash_s *target_flash, target_addr_t addr
 	at32f43_flash_clear_eop(target, bank_reg_offset);
 
 	/* Prepare for page/sector erase */
-	target_mem_write32(target, AT32F43x_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_SECERS);
+	target_mem_write32(target, AT32F43x_FLASH_CTRL + bank_reg_offset, AT32F43x_FLASH_CTRL_SECERS);
 	/* Select erased sector by its address */
 	target_mem_write32(target, AT32F43x_FLASH_ADDR + bank_reg_offset, addr);
 	/* Start sector erase operation */
-	target_mem_write32(target, AT32F43x_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_SECERS | FLASH_CTRL_ERSTR);
+	target_mem_write32(
+		target, AT32F43x_FLASH_CTRL + bank_reg_offset, AT32F43x_FLASH_CTRL_SECERS | AT32F43x_FLASH_CTRL_ERSTR);
 
 	/* Datasheet: page erase takes 50ms (typ), 500ms (max) */
 	return at32f43_flash_busy_wait(target, bank_reg_offset, NULL);
@@ -327,7 +326,7 @@ static bool at32f43_flash_write(target_flash_s *target_flash, target_addr_t dest
 	at32f43_flash_clear_eop(target, bank_reg_offset);
 
 	/* Write to bank corresponding to flash region */
-	target_mem_write32(target, AT32F43x_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_FPRGM);
+	target_mem_write32(target, AT32F43x_FLASH_CTRL + bank_reg_offset, AT32F43x_FLASH_CTRL_FPRGM);
 	cortexm_mem_write_sized(target, dest, src, len, psize);
 
 	/* Datasheet: flash programming takes 50us (typ), 200us (max) */
@@ -343,8 +342,9 @@ static bool at32f43_mass_erase_bank(
 	at32f43_flash_clear_eop(target, bank_reg_offset);
 
 	/* Flash mass erase start instruction */
-	target_mem_write32(target, AT32F43x_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_BANKERS);
-	target_mem_write32(target, AT32F43x_FLASH_CTRL + bank_reg_offset, FLASH_CTRL_BANKERS | FLASH_CTRL_ERSTR);
+	target_mem_write32(target, AT32F43x_FLASH_CTRL + bank_reg_offset, AT32F43x_FLASH_CTRL_BANKERS);
+	target_mem_write32(
+		target, AT32F43x_FLASH_CTRL + bank_reg_offset, AT32F43x_FLASH_CTRL_BANKERS | AT32F43x_FLASH_CTRL_ERSTR);
 
 	return at32f43_flash_busy_wait(target, bank_reg_offset, timeout);
 }
