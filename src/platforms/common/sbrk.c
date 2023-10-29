@@ -61,20 +61,19 @@ ptrdiff_t helper_stack_used(void)
 }
 
 #define STACK_CHECK_PATTERN 0x5a5a5a5a
-#define STACK_SIZE_RESERVED 4096U
+#define STACK_SIZE_RESERVED 5120U
 
 /* Count how many uints were overwritten in a fully descending stack */
 ptrdiff_t helper_stack_max(void)
 {
-	register const unsigned int *stack_ptr __asm__("sp");
-	const unsigned int *stack_top = &_stack;
-
 	unsigned int used_max = 0;
-	unsigned int *p = stack_top;
+	unsigned int *p = &_stack - sizeof(unsigned int);
 
-	while (*p != STACK_CHECK_PATTERN) {
+	while (*p-- != STACK_CHECK_PATTERN) {
 		used_max += sizeof(unsigned int);
-		p--;
+		/* avoid underrun */
+		if (used_max >= STACK_SIZE_RESERVED)
+			break;
 	}
 
 	return used_max;
@@ -102,14 +101,15 @@ void platform_check_stack_overflow(void)
 	}
 }
 
+__attribute((optimize("no-tree-loop-distribute-patterns"))) /* avoid __builtin_memset() substitution */
 /* Fill a fixed size stack with a known value for later checking */
 void platform_colorize_stack(void)
 {
 	register const char *stack_ptr __asm__("sp");
 	const unsigned int *stack_top = &_stack;
 
-	unsigned int *p = stack_top - STACK_SIZE_RESERVED;
-	while (*p < stack_ptr - 4) {
-		*p = STACK_CHECK_PATTERN;
+	unsigned int *p = (unsigned int *)(stack_top - STACK_SIZE_RESERVED / sizeof(unsigned int));
+	while (p < (const unsigned int *)stack_ptr) {
+		*p++ = STACK_CHECK_PATTERN;
 	}
 }
