@@ -77,6 +77,10 @@ int main(int argc, char **argv)
 	(void)argc;
 	(void)argv;
 	platform_init();
+
+	/* Fill the rest of stack with a known value once HCLK is decent */
+	void platform_colorize_stack(void);
+	platform_colorize_stack();
 #endif
 
 	while (true) {
