@@ -574,6 +574,7 @@ void tc_printf(target_s *t, const char *fmt, ...)
 	va_end(ap);
 }
 
+#if PC_HOSTED == 0
 /* Interface to host system calls */
 int tc_open(target_s *t, target_addr_t path, size_t plen, target_open_flags_e flags, mode_t mode)
 {
@@ -602,7 +603,7 @@ int tc_read(target_s *t, int fd, target_addr_t buf, unsigned int count)
 
 int tc_write(target_s *t, int fd, target_addr_t buf, unsigned int count)
 {
-#if PC_HOSTED == 0
+	/* BMP feature: redirect semihosting writes to debug_serial */
 	if (t->stdout_redirected && (fd == STDOUT_FILENO || fd == STDERR_FILENO)) {
 		while (count) {
 			uint8_t tmp[STDOUT_READ_BUF_SIZE];
@@ -616,8 +617,8 @@ int tc_write(target_s *t, int fd, target_addr_t buf, unsigned int count)
 		}
 		return 0;
 	}
-#endif
 
+	/* Delegate to gdb_hostio */
 	if (t->tc->write == NULL)
 		return 0;
 	return t->tc->write(t->tc, fd, buf, count);
@@ -688,3 +689,4 @@ int tc_system(target_s *t, target_addr_t cmd, size_t cmdlen)
 	}
 	return t->tc->system(t->tc, cmd, cmdlen);
 }
+#endif /* PC_HOSTED */
