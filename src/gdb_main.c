@@ -34,6 +34,7 @@
 #include "gdb_hostio.h"
 #include "target.h"
 #include "target_internal.h"
+#include "cortexm.h"
 #include "command.h"
 #include "crc32.h"
 #include "morse.h"
@@ -81,6 +82,7 @@ target_s *cur_target;
 target_s *last_target;
 bool gdb_target_running = false;
 static bool gdb_needs_detach_notify = false;
+static int gdb_non_stop = 0;
 
 static void handle_q_packet(char *packet, size_t len);
 static void handle_v_packet(char *packet, size_t len);
@@ -130,6 +132,11 @@ target_controller_s gdb_controller = {
 int gdb_main_loop(target_controller_s *tc, char *pbuf, size_t pbuf_size, size_t size, bool in_syscall)
 {
 	bool single_step = false;
+
+	/* gdb_getpacket timed out and returned 0 size */
+	if (size == 0) {
+		return 0;
+	}
 
 	/* GDB protocol main loop */
 	switch (pbuf[0]) {
@@ -359,6 +366,12 @@ int gdb_main_loop(target_controller_s *tc, char *pbuf, size_t pbuf_size, size_t 
 		handle_z_packet(pbuf, size);
 		break;
 
+	case '\x03': /* ETX */
+		DEBUG_GDB("Interrupt: %d", pbuf[0]);
+		SET_RUN_STATE(true);
+		target_halt_request(cur_target);
+		break;
+
 	default: /* Packet not implemented */
 		DEBUG_GDB("*** Unsupported packet: %s\n", pbuf);
 		gdb_putpacketz("");
@@ -439,7 +452,7 @@ static void exec_q_supported(const char *packet, const size_t length)
 	gdb_set_noackmode(false);
 
 	gdb_putpacket_f("PacketSize=%X;qXfer:memory-map:read+;qXfer:features:read+;"
-					"vContSupported+" GDB_QSUPPORTED_NOACKMODE,
+					"vContSupported+;QNonStop+" GDB_QSUPPORTED_NOACKMODE,
 		GDB_MAX_PACKET_SIZE);
 }
 
@@ -562,6 +575,20 @@ static void exec_q_attached(const char *packet, const size_t length)
 		gdb_putpacketz("0"); /* It does tolelrate reset */
 }
 
+static void exec_q_non_stop(const char *packet, const size_t length)
+{
+	(void)length;
+#if 0
+	int val = 0;
+	if (sscanf(packet, "%d", &val) == 1)
+		gdb_non_stop = val;
+#else
+	const int val = strtoul(packet, NULL, 10);
+	gdb_non_stop = val;
+#endif
+	gdb_putpacketz("OK");
+}
+
 static const cmd_executer_s q_commands[] = {
 	{"qRcmd,", exec_q_rcmd},
 	{"qSupported", exec_q_supported},
@@ -573,6 +600,7 @@ static const cmd_executer_s q_commands[] = {
 	{"qsThreadInfo", exec_q_thread_info},
 	{"QStartNoAckMode", exec_q_noackmode},
 	{"qAttached", exec_q_attached},
+	{"QNonStop:", exec_q_non_stop},
 	{NULL, NULL},
 };
 
@@ -824,13 +852,39 @@ void gdb_poll_target(void)
 	/* poll target */
 	target_addr_t watch;
 	target_halt_reason_e reason = target_halt_poll(cur_target, &watch);
-	if (!reason)
+#if 0
+	if (reason == TARGET_HALT_RUNNING)
 		return;
+#endif
 
 	/* switch polling off */
 	gdb_target_running = false;
 	SET_RUN_STATE(0);
 
+	if (gdb_non_stop) {
+		if (reason != TARGET_HALT_RUNNING)
+			DEBUG_GDB("Notification for reason %d\n", reason);
+		switch (reason) {
+		case TARGET_HALT_ERROR:
+			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGLOST);
+			break;
+		case TARGET_HALT_REQUEST:
+			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGINT);
+			break;
+		case TARGET_HALT_WATCHPOINT:
+			gdb_putnotifpacket_f("Stop:T%02Xthread:1;core:0;watch:%08" PRIX32 ";", GDB_SIGTRAP, watch);
+			break;
+		case TARGET_HALT_FAULT:
+			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGSEGV);
+			break;
+		case TARGET_HALT_RUNNING:
+			break;
+		default:
+			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGTRAP);
+			break;
+		}
+		return;
+	}
 	/* Translate reason to GDB signal */
 	switch (reason) {
 	case TARGET_HALT_ERROR:
@@ -845,6 +899,8 @@ void gdb_poll_target(void)
 		break;
 	case TARGET_HALT_FAULT:
 		gdb_putpacket_f("T%02X", GDB_SIGSEGV);
+		break;
+	case TARGET_HALT_RUNNING:
 		break;
 	default:
 		gdb_putpacket_f("T%02X", GDB_SIGTRAP);
