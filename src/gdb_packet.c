@@ -335,6 +335,19 @@ void gdb_putpacket_f(const char *const fmt, ...)
 	va_end(ap);
 }
 
+void gdb_putnotifpacket_f(const char *const fmt, ...)
+{
+	va_list ap;
+	char *buf;
+
+	va_start(ap, fmt);
+	const int size = vasprintf(&buf, fmt, ap);
+	if (size > 0)
+		gdb_put_notification(buf, size);
+	free(buf);
+	va_end(ap);
+}
+
 void gdb_out(const char *const buf)
 {
 	const size_t buf_len = strlen(buf);
