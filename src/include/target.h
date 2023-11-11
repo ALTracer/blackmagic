@@ -157,7 +157,7 @@ struct target_controller {
 	void (*destroy_callback)(target_controller_s *, target_s *target);
 	void (*printf)(target_controller_s *, const char *fmt, va_list);
 
-#if PC_HOSTED == 0
+#ifdef CONFIG_BMP_SEMIHOSTING
 	/* Interface to host system calls */
 	int (*open)(target_controller_s *, target_addr_t path, size_t path_len, target_open_flags_e flags, mode_t mode);
 	int (*close)(target_controller_s *, int fd);

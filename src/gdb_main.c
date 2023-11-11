@@ -116,7 +116,7 @@ target_controller_s gdb_controller = {
 	.destroy_callback = gdb_target_destroy_callback,
 	.printf = gdb_target_printf,
 
-#if PC_HOSTED == 0
+#ifdef CONFIG_BMP_SEMIHOSTING
 	.open = hostio_open,
 	.close = hostio_close,
 	.read = hostio_read,
@@ -136,7 +136,7 @@ target_controller_s gdb_controller = {
 
 int gdb_main_loop(target_controller_s *tc, char *pbuf, size_t pbuf_size, size_t size, bool in_syscall)
 {
-#if PC_HOSTED == 1
+#if (PC_HOSTED == 1) || !defined(CONFIG_BMP_SEMIHOSTING)
 	(void)tc;
 	(void)in_syscall;
 #endif
@@ -286,7 +286,7 @@ int gdb_main_loop(target_controller_s *tc, char *pbuf, size_t pbuf_size, size_t 
 		break;
 	}
 
-#if PC_HOSTED == 0
+#ifdef CONFIG_BMP_SEMIHOSTING
 	case 'F': /* File-I/O call finished */
 		if (in_syscall)
 			return hostio_reply(tc, pbuf, size);

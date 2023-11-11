@@ -24,7 +24,7 @@
 #include "gdb_hostio.h"
 #include "gdb_packet.h"
 
-#if PC_HOSTED == 0
+#ifdef CONFIG_BMP_SEMIHOSTING
 
 int hostio_reply(target_controller_s *const tc, char *const pbuf, const int len)
 {
@@ -151,4 +151,4 @@ int hostio_system(target_controller_s *tc, target_addr_t cmd, size_t cmd_len)
 	gdb_putpacket_f("Fsystem,%08X/%X", cmd, cmd_len);
 	return hostio_get_response(tc);
 }
-#endif /* PC_HOSTED */
+#endif /* CONFIG_BMP_SEMIHOSTING */

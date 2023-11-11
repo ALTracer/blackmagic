@@ -157,9 +157,11 @@ struct target {
 	uint32_t cpuid;
 	char *core;
 	char cmdline[MAX_CMDLINE];
+#ifdef CONFIG_BMP_SEMIHOSTING
 	target_addr_t heapinfo[4];
+#endif
 	target_command_s *commands;
-#if PC_HOSTED == 0
+#ifdef CONFIG_BMP_SEMIHOSTING
 	bool stdout_redirected;
 #endif
 

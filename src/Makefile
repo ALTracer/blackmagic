@@ -145,6 +145,10 @@ ifeq ($(ADVERTISE_NOACKMODE), 1)
 CFLAGS += -DADVERTISE_NOACKMODE=1
 endif
 
+ifeq ($(CONFIG_BMP_SEMIHOSTING), y)
+CFLAGS += -DCONFIG_BMP_SEMIHOSTING
+endif
+
 OBJ = $(patsubst %.S,%.o,$(patsubst %.c,%.o,$(SRC)))
 
 $(TARGET): include/version.h $(OBJ)

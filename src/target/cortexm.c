@@ -72,13 +72,13 @@
 #endif
 
 static bool cortexm_vector_catch(target_s *target, int argc, const char **argv);
-#if PC_HOSTED == 0
+#ifdef CONFIG_BMP_SEMIHOSTING
 static bool cortexm_redirect_stdout(target_s *target, int argc, const char **argv);
 #endif
 
 const command_s cortexm_cmd_list[] = {
 	{"vector_catch", cortexm_vector_catch, "Catch exception vectors"},
-#if PC_HOSTED == 0
+#ifdef CONFIG_BMP_SEMIHOSTING
 	{"redirect_stdout", cortexm_redirect_stdout, "Redirect semihosting stdout to USB UART"},
 #endif
 	{NULL, NULL, NULL},
@@ -105,7 +105,9 @@ static target_addr_t cortexm_check_watch(target_s *target);
 
 static int cortexm_hostio_request(target_s *target);
 
+#if defined(CONFIG_BMP_SEMIHOSTING) || (PC_HOSTED == 1)
 static uint32_t time0_sec = UINT32_MAX; /* sys_clock time origin */
+#endif
 
 typedef struct cortexm_priv {
 	cortex_priv_s base;
@@ -1387,7 +1389,7 @@ static bool cortexm_vector_catch(target_s *target, int argc, const char **argv)
 	return true;
 }
 
-#if PC_HOSTED == 0
+#ifdef CONFIG_BMP_SEMIHOSTING
 static bool cortexm_redirect_stdout(target_s *target, int argc, const char **argv)
 {
 	if (argc == 1)
@@ -1398,8 +1400,8 @@ static bool cortexm_redirect_stdout(target_s *target, int argc, const char **arg
 }
 #endif
 
-#if PC_HOSTED == 0
-/* probe memory access functions */
+#ifdef CONFIG_BMP_SEMIHOSTING
+/* probe memory access functions (used by semihosting stack of BMP) */
 static void probe_mem_read(
 	target_s *target __attribute__((unused)), void *probe_dest, target_addr_t target_src, size_t len)
 {
@@ -1710,7 +1712,8 @@ static int cortexm_hostio_request(target_s *target)
 		ret = errno;
 		break;
 
-#else
+#else /* PC_HOSTED */
+#ifdef CONFIG_BMP_SEMIHOSTING
 
 		/* code that runs in probe. use gdb fileio calls. */
 
@@ -1889,8 +1892,11 @@ static int cortexm_hostio_request(target_s *target)
 	case SEMIHOSTING_SYS_ERRNO: /* Return last errno from GDB */
 		ret = target->tc->errno_;
 		break;
-#endif
+#endif /* CONFIG_BMP_SEMIHOSTING */
+#endif /* PC_HOSTED */
 
+#ifdef CONFIG_BMP_SEMIHOSTING
+		/* code that runs in both pc-hosted and adapters */
 	case SEMIHOSTING_SYS_EXIT: /* _exit() */
 		tc_printf(target, "_exit(0x%x)\n", arm_regs[1]);
 		target_halt_resume(target, 1);
@@ -1960,6 +1966,10 @@ static int cortexm_hostio_request(target_s *target)
 	// not implemented yet:
 	case SEMIHOSTING_SYS_ELAPSED:  /* elapsed */
 	case SEMIHOSTING_SYS_TICKFREQ: /* tickfreq */
+		ret = -1;
+		break;
+#endif       /* CONFIG_BMP_SEMIHOSTING */
+	default: /* Catch-all for unknown/unsupported syscalls */
 		ret = -1;
 		break;
 	}

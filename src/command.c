@@ -71,7 +71,9 @@ static bool cmd_target_power(target_s *t, int argc, const char **argv);
 #ifdef PLATFORM_HAS_TRACESWO
 static bool cmd_traceswo(target_s *t, int argc, const char **argv);
 #endif
+#ifdef CONFIG_BMP_SEMIHOSTING
 static bool cmd_heapinfo(target_s *t, int argc, const char **argv);
+#endif
 #ifdef ENABLE_RTT
 static bool cmd_rtt(target_s *t, int argc, const char **argv);
 #endif
@@ -112,7 +114,9 @@ const command_s cmd_list[] = {
 	{"traceswo", cmd_traceswo, "Start trace capture, Manchester mode: [decode [CHANNEL_NR ...]]"},
 #endif
 #endif
+#ifdef CONFIG_BMP_SEMIHOSTING
 	{"heapinfo", cmd_heapinfo, "Set semihosting heapinfo: HEAPINFO HEAP_BASE HEAP_LIMIT STACK_BASE STACK_LIMIT"},
+#endif
 #if defined(PLATFORM_HAS_DEBUG) && PC_HOSTED == 0
 	{"debug_bmp", cmd_debug_bmp, "Output BMP \"debug\" strings to the second vcom: [enable|disable]"},
 #endif
@@ -670,6 +674,7 @@ static bool cmd_shutdown_bmda(target_s *t, int argc, const char **argv)
 }
 #endif
 
+#ifdef CONFIG_BMP_SEMIHOSTING
 static bool cmd_heapinfo(target_s *t, int argc, const char **argv)
 {
 	if (t == NULL)
@@ -686,3 +691,4 @@ static bool cmd_heapinfo(target_s *t, int argc, const char **argv)
 		gdb_outf("heapinfo heap_base heap_limit stack_base stack_limit\n");
 	return true;
 }
+#endif

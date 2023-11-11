@@ -364,6 +364,7 @@ void target_set_cmdline(target_s *t, char *cmdline)
 	DEBUG_INFO("cmdline: >%s<\n", t->cmdline);
 }
 
+#ifdef CONFIG_BMP_SEMIHOSTING
 /* Set heapinfo for semihosting */
 void target_set_heapinfo(
 	target_s *t, target_addr_t heap_base, target_addr_t heap_limit, target_addr_t stack_base, target_addr_t stack_limit)
@@ -375,6 +376,7 @@ void target_set_heapinfo(
 	t->heapinfo[2] = stack_base;
 	t->heapinfo[3] = stack_limit;
 }
+#endif
 
 /* Break-/watchpoint functions */
 int target_breakwatch_set(target_s *t, target_breakwatch_e type, target_addr_t addr, size_t len)
@@ -574,7 +576,7 @@ void tc_printf(target_s *t, const char *fmt, ...)
 	va_end(ap);
 }
 
-#if PC_HOSTED == 0
+#ifdef CONFIG_BMP_SEMIHOSTING
 /* Interface to host system calls */
 int tc_open(target_s *t, target_addr_t path, size_t plen, target_open_flags_e flags, mode_t mode)
 {
@@ -689,4 +691,4 @@ int tc_system(target_s *t, target_addr_t cmd, size_t cmdlen)
 	}
 	return t->tc->system(t->tc, cmd, cmdlen);
 }
-#endif /* PC_HOSTED */
+#endif /* CONFIG_BMP_SEMIHOSTING */
