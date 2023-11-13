@@ -33,6 +33,7 @@
 #define GDB_PACKET_RUNLENGTH_START    '*'
 #define GDB_PACKET_NOTIFICATION_START '%'
 #define GDB_PACKET_ESCAPE_XOR         (0x20U)
+#define GDB_PACKET_INTERRUPT          '\x03'
 
 void gdb_set_noackmode(bool enable);
 size_t gdb_getpacket(char *packet, size_t size);

@@ -52,7 +52,7 @@ static void bmp_poll_loop(void)
 		if (!gdb_target_running || !cur_target)
 			break;
 		char c = gdb_if_getchar_to(0);
-		if (c == '\x03' || c == '\x04')
+		if (c == GDB_PACKET_INTERRUPT || c == GDB_INTERFACE_DETACHED)
 			target_halt_request(cur_target);
 		platform_pace_poll();
 #ifdef ENABLE_RTT
@@ -63,8 +63,8 @@ static void bmp_poll_loop(void)
 
 	SET_IDLE_STATE(true);
 	size_t size = gdb_getpacket(pbuf, GDB_PACKET_BUFFER_SIZE);
-	// If port closed and target detached, stay idle
-	if (pbuf[0] != '\x04' || cur_target)
+	// If port closed and target detached, stay idle; otherwise
+	if (pbuf[0] != GDB_INTERFACE_DETACHED || cur_target)
 		SET_IDLE_STATE(false);
 	gdb_main(pbuf, GDB_PACKET_BUFFER_SIZE, size);
 }

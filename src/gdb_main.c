@@ -300,8 +300,8 @@ int gdb_main_loop(target_controller_s *tc, char *pbuf, size_t pbuf_size, size_t 
 		gdb_putpacketz("OK");
 		break;
 
-	case '\x04':
-	case 'D': /* GDB 'detach' command. */
+	case GDB_INTERFACE_DETACHED: /* DTR went false. */
+	case 'D':                    /* GDB 'detach' command. */
 #if PC_HOSTED == 1
 		if (shutdown_bmda)
 			return 0;
@@ -366,7 +366,7 @@ int gdb_main_loop(target_controller_s *tc, char *pbuf, size_t pbuf_size, size_t 
 		handle_z_packet(pbuf, size);
 		break;
 
-	case '\x03': /* ETX */
+	case GDB_PACKET_INTERRUPT: /* ETX */
 		DEBUG_GDB("Interrupt: %d", pbuf[0]);
 		SET_RUN_STATE(true);
 		target_halt_request(cur_target);

@@ -117,7 +117,7 @@ char gdb_if_getchar(void)
 		 */
 		if (!gdb_serial_get_dtr()) {
 			__WFI();
-			return '\x04';
+			return GDB_INTERFACE_DETACHED;
 		}
 
 		gdb_if_update_buf();
@@ -141,7 +141,7 @@ char gdb_if_getchar_to(const uint32_t timeout)
 		 */
 		if (!gdb_serial_get_dtr()) {
 			__WFI();
-			return '\x04';
+			return GDB_INTERFACE_DETACHED;
 		}
 		gdb_if_update_buf();
 	}

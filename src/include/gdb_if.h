@@ -21,6 +21,12 @@
 #ifndef INCLUDE_GDB_IF_H
 #define INCLUDE_GDB_IF_H
 
+/*
+ * gdb_if_getchar()/_to() will return this char once DTR goes false,
+ * meaning a host program (gdb or bmpflash) closed the CDC-ACM port
+ */
+#define GDB_INTERFACE_DETACHED '\x04'
+
 #if PC_HOSTED == 0 && !defined(NO_LIBOPENCM3)
 #include <libopencm3/usb/usbd.h>
 void gdb_usb_out_cb(usbd_device *dev, uint8_t ep);

@@ -150,7 +150,7 @@ size_t gdb_getpacket(char *const packet, const size_t size)
 			}
 #endif
 			/* EOT (end of transmission) - connection was closed */
-			if (packet[0U] == '\x04') {
+			if (packet[0U] == GDB_INTERFACE_DETACHED) {
 				packet[1U] = 0;
 				return 1U;
 			}
