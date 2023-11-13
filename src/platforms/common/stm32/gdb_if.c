@@ -148,6 +148,9 @@ char gdb_if_getchar_to(const uint32_t timeout)
 
 	if (out_ptr < count_out)
 		return buffer_out[out_ptr++];
+
+	if (platform_timeout_is_expired(&receive_timeout) && timeout > 500U)
+		DEBUG_WARN("%s: Timed out waiting for %d ms\n", __func__, timeout);
 	/* XXX: Need to find a better way to error return than this. This provides '\xff' characters. */
 	return -1;
 }
