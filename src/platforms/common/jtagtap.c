@@ -37,6 +37,14 @@ static void jtagtap_tdi_seq(bool final_tms, const uint8_t *data_in, size_t clock
 static bool jtagtap_next(bool tms, bool tdi);
 static void jtagtap_cycle(bool tms, bool tdi, size_t clock_cycles);
 
+__attribute__((always_inline)) static inline void platform_delay_busy(const uint32_t loops)
+{
+	register uint32_t i = loops;
+	do {
+		__asm__("nop");
+	} while (--i > 0U);
+}
+
 void jtagtap_init(void)
 {
 	platform_target_clk_output_enable(true);
@@ -61,8 +69,7 @@ static void jtagtap_reset(void)
 #ifdef TRST_PORT
 	if (platform_hwversion() == 0) {
 		gpio_clear(TRST_PORT, TRST_PIN);
-		for (volatile size_t i = 0; i < 10000U; i++)
-			continue;
+		platform_delay_busy(10000U);
 		gpio_set(TRST_PORT, TRST_PIN);
 	}
 #endif
@@ -72,12 +79,10 @@ static void jtagtap_reset(void)
 static bool jtagtap_next_clk_delay()
 {
 	gpio_set(TCK_PORT, TCK_PIN);
-	for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-		continue;
+	platform_delay_busy(target_clk_divider);
 	const uint16_t result = gpio_get(TDO_PORT, TDO_PIN);
 	gpio_clear(TCK_PORT, TCK_PIN);
-	for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-		continue;
+	platform_delay_busy(target_clk_divider);
 	return result != 0;
 }
 
@@ -105,12 +110,10 @@ static void jtagtap_tms_seq_clk_delay(uint32_t tms_states, const size_t clock_cy
 		const bool state = tms_states & 1U;
 		gpio_set_val(TMS_PORT, TMS_PIN, state);
 		gpio_set(TCK_PORT, TCK_PIN);
-		for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-			continue;
+		platform_delay_busy(target_clk_divider);
 		tms_states >>= 1U;
 		gpio_clear(TCK_PORT, TCK_PIN);
-		for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-			continue;
+		platform_delay_busy(target_clk_divider);
 	}
 }
 
@@ -153,8 +156,7 @@ static void jtagtap_tdi_tdo_seq_clk_delay(
 		gpio_set_val(TDI_PORT, TDI_PIN, data_in[byte] & (1U << bit));
 		/* Start the clock cycle */
 		gpio_set(TCK_PORT, TCK_PIN);
-		for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-			continue;
+		platform_delay_busy(target_clk_divider);
 		/* If TDO is high, store a 1 in the appropriate position in the value being accumulated */
 		if (gpio_get(TDO_PORT, TDO_PIN))
 			value |= 1U << bit;
@@ -164,8 +166,7 @@ static void jtagtap_tdi_tdo_seq_clk_delay(
 		}
 		/* Finish the clock cycle */
 		gpio_clear(TCK_PORT, TCK_PIN);
-		for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-			continue;
+		platform_delay_busy(target_clk_divider);
 	}
 	/* If clock_cycles is not divisible by 8, we have some extra data to write back here. */
 	if (clock_cycles & 7U) {
@@ -241,12 +242,10 @@ static void jtagtap_tdi_seq_clk_delay(const uint8_t *const data_in, const bool f
 		/* Set up the TDI pin and start the clock cycle */
 		gpio_set_val(TDI_PORT, TDI_PIN, data_in[byte] & (1U << bit));
 		gpio_set(TCK_PORT, TCK_PIN);
-		for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-			continue;
+		platform_delay_busy(target_clk_divider);
 		/* Finish the clock cycle */
 		gpio_clear(TCK_PORT, TCK_PIN);
-		for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-			continue;
+		platform_delay_busy(target_clk_divider);
 	}
 }
 
@@ -294,11 +293,9 @@ static void jtagtap_cycle_clk_delay(const size_t clock_cycles)
 {
 	for (size_t cycle = 0; cycle < clock_cycles; ++cycle) {
 		gpio_set(TCK_PORT, TCK_PIN);
-		for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-			continue;
+		platform_delay_busy(target_clk_divider);
 		gpio_clear(TCK_PORT, TCK_PIN);
-		for (volatile uint32_t counter = target_clk_divider; counter > 0; --counter)
-			continue;
+		platform_delay_busy(target_clk_divider);
 	}
 }
 

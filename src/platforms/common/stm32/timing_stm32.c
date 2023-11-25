@@ -199,3 +199,19 @@ uint32_t platform_max_frequency_get(void)
 	return result;
 #endif
 }
+
+/* Busy-looping delay for GPIO bitbanging operations */
+void platform_delay_busy(const uint32_t loops)
+{
+	/* Avoid using `volatile` variables which incur stack accesses */
+	register uint32_t i = loops;
+	do {
+		/*
+		 * A "tactical" single NOP takes 0-1 cycles on Cortex-M0/M3/M4/M7
+		 * and avoids DCE, but consumes 2 bytes of flash, amplified by static/inline.
+		 * A normal `continue` in for/while/do-loops with no side-effects
+		 * makes the whole loop disappear to DCE at higher than -O1.
+		 */
+		__asm__("nop");
+	} while (--i > 0U);
+}
