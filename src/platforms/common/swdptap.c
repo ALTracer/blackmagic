@@ -47,7 +47,20 @@ static void swdptap_seq_out_parity(uint32_t tms_states, size_t clock_cycles) __a
 
 __attribute__((always_inline)) static inline void platform_delay_busy(const uint32_t loops)
 {
+#if defined(ENABLE_DEBUG) && !defined(DEBUG_WIRE_IS_NOOP)
+	if (loops > 255U)
+		DEBUG_ERROR("swdptap/platform_delay_busy: Requesting %ld loops!\n", loops);
+	/* The predecrement will lead to unsigned underflow and effective DoS */
+	if (loops == 0U) {
+		DEBUG_ERROR("swdptap/platform_delay_busy: Requesting %ld loops!\n", loops);
+		return;
+	}
+	register uint32_t i = loops & 0xffU;
+#else
+	if (loops < 1U)
+		return;
 	register uint32_t i = loops;
+#endif
 	do {
 		__asm__("nop");
 	} while (--i > 0U);

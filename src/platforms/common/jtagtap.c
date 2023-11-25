@@ -39,7 +39,13 @@ static void jtagtap_cycle(bool tms, bool tdi, size_t clock_cycles);
 
 __attribute__((always_inline)) static inline void platform_delay_busy(const uint32_t loops)
 {
+#if defined(ENABLE_DEBUG) && !defined(DEBUG_WIRE_IS_NOOP)
+	if (loops > 255U)
+		DEBUG_ERROR("jtagtap/platform_delay_busy: Requesting %ld loops!\n", loops);
+	register uint32_t i = loops & 0xffU;
+#else
 	register uint32_t i = loops;
+#endif
 	do {
 		__asm__("nop");
 	} while (--i > 0U);
@@ -69,7 +75,12 @@ static void jtagtap_reset(void)
 #ifdef TRST_PORT
 	if (platform_hwversion() == 0) {
 		gpio_clear(TRST_PORT, TRST_PIN);
-		platform_delay_busy(10000U);
+		/* Wait for 0.5ms */
+#if 0
+		for (volatile uint32_t counter = 10000U; counter > 0; counter--) continue;
+		platform_delay_busy(10000U); /* Do not use for long delays */
+#endif
+		platform_delay(1U); /* Requires SysTick interrupt to be unblocked */
 		gpio_set(TRST_PORT, TRST_PIN);
 	}
 #endif
