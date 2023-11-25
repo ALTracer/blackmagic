@@ -30,7 +30,7 @@
 
 bool running_status = false;
 static volatile uint32_t time_ms = 0;
-uint32_t target_clk_divider = 0;
+uint32_t target_clk_divider = UINT32_MAX;
 
 static size_t morse_tick = 0;
 #if defined(PLATFORM_HAS_POWER_SWITCH) && defined(STM32F1)
@@ -140,9 +140,19 @@ uint32_t platform_time_ms(void)
  * per delay loop count with 2 delay loops per clock
  */
 
+#if defined(STM32F4)
+/* Values for STM32F411 at 96 MHz */
+#define USED_SWD_CYCLES 16
+#define CYCLES_PER_CNT  4
+#elif defined(STM32F1)
 /* Values for STM32F103 at 72 MHz */
 #define USED_SWD_CYCLES 22
 #define CYCLES_PER_CNT  10
+#else
+/* Inherit defaults for all the other platforms (F0, F7) */
+#define USED_SWD_CYCLES 22
+#define CYCLES_PER_CNT  10
+#endif
 
 void platform_max_frequency_set(const uint32_t frequency)
 {
@@ -194,13 +204,16 @@ uint32_t platform_max_frequency_get(void)
 	const uint32_t ratio = (target_clk_divider * BITBANG_DIVIDER_FACTOR) + BITBANG_DIVIDER_OFFSET;
 	return rcc_ahb_frequency / ratio;
 #else
+	if (target_clk_divider == UINT32_MAX)
+		return rcc_ahb_frequency / USED_SWD_CYCLES;
+	DEBUG_INFO("timing_stm32: target_clk_divider = %lu", target_clk_divider);
 	uint32_t result = rcc_ahb_frequency;
-	result /= USED_SWD_CYCLES + CYCLES_PER_CNT * target_clk_divider;
+	result /= USED_SWD_CYCLES + CYCLES_PER_CNT * target_clk_divider * 2U;
 	return result;
 #endif
 }
 
-/* Busy-looping delay for GPIO bitbanging operations */
+/* Busy-looping delay for GPIO bitbanging operations. SUBS+BNE.N take 4 cycles. */
 void platform_delay_busy(const uint32_t loops)
 {
 	/* Avoid using `volatile` variables which incur stack accesses */
