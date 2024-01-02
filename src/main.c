@@ -43,30 +43,35 @@ char *gdb_packet_buffer()
 
 static void bmp_poll_loop(void)
 {
+	char c = GDB_INTERFACE_DETACHED;
 	SET_IDLE_STATE(false);
-	while (gdb_target_running && cur_target) {
-		gdb_poll_target();
+	do {
+		if (gdb_target_running && cur_target) {
+			gdb_poll_target();
 
-		// Check again, as `gdb_poll_target()` may
-		// alter these variables.
-		if (!gdb_target_running || !cur_target)
-			break;
-		char c = gdb_if_getchar_to(0);
-		if (c == GDB_PACKET_INTERRUPT || c == GDB_INTERFACE_DETACHED)
-			target_halt_request(cur_target);
-		platform_pace_poll();
+			// Check again, as `gdb_poll_target()` may
+			// alter these variables.
+			if (!gdb_target_running || !cur_target)
+				break;
+			c = gdb_if_getchar_to(0);
+			if (c == GDB_PACKET_INTERRUPT || c == GDB_INTERFACE_DETACHED)
+				target_halt_request(cur_target);
+			platform_pace_poll();
 #ifdef ENABLE_RTT
-		if (rtt_enabled)
-			poll_rtt(cur_target);
+			if (rtt_enabled)
+				poll_rtt(cur_target);
 #endif
-	}
+		}
+	} while (false);
 
 	SET_IDLE_STATE(true);
-	size_t size = gdb_getpacket(pbuf, GDB_PACKET_BUFFER_SIZE);
-	// If port closed and target detached, stay idle; otherwise
-	if (pbuf[0] != GDB_INTERFACE_DETACHED || cur_target)
-		SET_IDLE_STATE(false);
-	gdb_main(pbuf, GDB_PACKET_BUFFER_SIZE, size);
+	if (c != '\xFF') {
+		size_t size = gdb_getpacket(pbuf, GDB_PACKET_BUFFER_SIZE);
+		// If port closed and target detached, stay idle; otherwise
+		if (pbuf[0] != GDB_INTERFACE_DETACHED || cur_target)
+			SET_IDLE_STATE(false);
+		gdb_main(pbuf, GDB_PACKET_BUFFER_SIZE, size);
+	}
 }
 
 int main(int argc, char **argv)
