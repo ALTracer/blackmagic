@@ -236,14 +236,25 @@ int gdb_main_loop(target_controller_s *tc, char *pbuf, size_t pbuf_size, size_t 
 			break;
 		}
 
-		/*
+		if (gdb_non_stop) {
+			if (gdb_target_running) {
+				gdb_putpacketz("OK"); /* Attached, not halted */
+			} else {
+				/* Thread 1 halted with a GDB_SIGTRAP */
+				gdb_putpacketz("T05thread:1;");
+				/* No other threads, don't bother delegating them to vStopped */
+			}
+			break;
+		} else {
+			/*
 		 * The target is running, so there is no response to give.
 		 * The calling function will poll the state of the target
 		 * by calling gdb_poll_target() as long as `cur_target`
 		 * is not NULL and `gdb_target_running` is true.
 		 */
-		gdb_target_running = true;
-		break;
+			gdb_target_running = true;
+			break;
+		}
 	}
 
 	/* Optional GDB packet support */
@@ -633,7 +644,11 @@ static void handle_v_packet(char *packet, const size_t plen)
 		cur_target = target_attach_n(addr, &gdb_controller);
 		if (cur_target) {
 			morse(NULL, false);
-			/*
+			if (gdb_non_stop) {
+				/* Use a literal OK, not a "Stop-Reply of GDB_SIGTRAP on fake hwthread 1" */
+				gdb_putpacketz("OK");
+			} else {
+				/*
 			 * We don't actually support threads, but GDB 11 and 12 can't work without
 			 * us saying we attached to thread 1.. see the following for the low-down of this:
 			 * https://sourceware.org/bugzilla/show_bug.cgi?id=28405
@@ -642,7 +657,8 @@ static void handle_v_packet(char *packet, const size_t plen)
 			 * https://sourceware.org/pipermail/gdb-patches/2022-April/188058.html
 			 * https://sourceware.org/pipermail/gdb-patches/2022-July/190869.html
 			 */
-			gdb_putpacketz("T05thread:1;");
+				gdb_putpacketz("T05thread:1;");
+			}
 		} else
 			gdb_putpacketz("E01");
 
@@ -745,6 +761,10 @@ static void handle_v_packet(char *packet, const size_t plen)
 			target_halt_resume(cur_target, single_step);
 			SET_RUN_STATE(true);
 			gdb_target_running = true;
+			break;
+		case 't': /* 't': Stop */
+			SET_RUN_STATE(true);
+			target_halt_request(cur_target);
 			break;
 		}
 
@@ -878,6 +898,7 @@ void gdb_poll_target(void)
 			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGSEGV);
 			break;
 		case TARGET_HALT_RUNNING:
+			gdb_target_running = true;
 			break;
 		default:
 			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGTRAP);
@@ -901,6 +922,7 @@ void gdb_poll_target(void)
 		gdb_putpacket_f("T%02X", GDB_SIGSEGV);
 		break;
 	case TARGET_HALT_RUNNING:
+		gdb_target_running = true;
 		break;
 	default:
 		gdb_putpacket_f("T%02X", GDB_SIGTRAP);
