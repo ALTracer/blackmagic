@@ -213,6 +213,15 @@ int gdb_main_loop(target_controller_s *tc, char *pbuf, size_t pbuf_size, size_t 
 			gdb_putpacketz("E01");
 		break;
 	}
+	case 'T': { /* 'T1': Thread select */
+		uint32_t thread_id = 0;
+		sscanf(pbuf, "T%" SCNx32, &thread_id);
+		if (thread_id <= 1)
+			gdb_putpacketz("OK");
+		else
+			gdb_putpacketz("E01");
+		break;
+	}
 	case 's': /* 's [addr]': Single step [start at addr] */
 		single_step = true;
 		/* fall through */
@@ -576,6 +585,13 @@ static void exec_q_noackmode(const char *packet, const size_t length)
  */
 static void exec_q_attached(const char *packet, const size_t length)
 {
+	if (gdb_non_stop) {
+		if (cur_target)
+			gdb_putpacketz("1");
+		else
+			gdb_putpacketz("0");
+		return;
+	}
 	/* If the packet has a trailing PID, or we're not attached to anything, error response */
 	if ((length && packet[0] == ':') || !cur_target)
 		gdb_putpacketz("E01");
@@ -761,12 +777,30 @@ static void handle_v_packet(char *packet, const size_t plen)
 			target_halt_resume(cur_target, single_step);
 			SET_RUN_STATE(true);
 			gdb_target_running = true;
+			if (gdb_non_stop) {
+				gdb_putpacketz("OK");
+				gdb_poll_target();
+			}
 			break;
 		case 't': /* 't': Stop */
 			SET_RUN_STATE(true);
 			target_halt_request(cur_target);
+			if (gdb_non_stop) {
+				gdb_putpacketz("OK");
+				gdb_poll_target();
+			}
 			break;
 		}
+	} else if (!strncmp(packet, "vCtrlC", 6U)) {
+		/* Variant of interrupting in Non-Stop mode */
+		if (!cur_target) {
+			gdb_putpacketz("EFF");
+			return;
+		}
+		SET_RUN_STATE(true);
+		target_halt_request(cur_target);
+		gdb_putpacketz("OK");
+		gdb_poll_target();
 
 	} else if (sscanf(packet, "vFlashErase:%08" PRIx32 ",%08" PRIx32, &addr, &len) == 2) {
 		/* Erase Flash Memory */
