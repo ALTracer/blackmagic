@@ -70,12 +70,16 @@ static bool cortexm_vector_catch(target_s *target, int argc, const char **argv);
 #if PC_HOSTED == 0
 static bool cortexm_redirect_stdout(target_s *target, int argc, const char **argv);
 #endif
+static bool cortexm_write_dp(target_s *target, int argc, const char **argv);
+static bool cortexm_read_ap(target_s *target, int argc, const char **argv);
 
 const command_s cortexm_cmd_list[] = {
 	{"vector_catch", cortexm_vector_catch, "Catch exception vectors"},
 #if PC_HOSTED == 0
 	{"redirect_stdout", cortexm_redirect_stdout, "Redirect semihosting stdout to USB UART"},
 #endif
+	{"WriteDP", cortexm_write_dp, "Write ADIv5 DP: <index, 0..3> <value, u32>"},
+	{"ReadAP", cortexm_read_ap, "Read ADIv5 AP: <index, 0..3>"},
 	{NULL, NULL, NULL},
 };
 
@@ -1378,6 +1382,49 @@ static target_addr_t cortexm_check_watch(target_s *target)
 		return 0;
 
 	return target_mem_read32(target, CORTEXM_DWT_COMP(i));
+}
+
+/*
+ * Expected exchange:
+ * -> WriteDP 0x2 0xf0
+ * <- O.K.
+ * -> ReadAP 0x2
+ * <- O.K.:0xe00ff003
+ * May be equivalent to:
+ * adiv5_dp_write(dp, ADIV5_DP_SELECT, ADIV5_DP_BANK2);
+ * uint32_t dp_targetid = adiv5_dp_read(dp, ADIV5_DP_TARGETID);
+ */
+
+static bool cortexm_write_dp(target_s *target, int argc, const char **argv)
+{
+	adiv5_access_port_s *ap = cortex_ap(target);
+	if (argc != 3)
+		return false;
+	const uint32_t addr = strtoul(argv[1], NULL, 16);
+	const uint32_t val = strtoul(argv[2], NULL, 16);
+
+	DEBUG_INFO("%s(%x, %x)\n", __func__, addr, val);
+	if (addr > 3)
+		return false;
+	adiv5_dp_write(ap->dp, addr * 4U, val);
+	gdb_out("O.K.\n");
+
+	return true;
+}
+
+static bool cortexm_read_ap(target_s *target, int argc, const char **argv)
+{
+	adiv5_access_port_s *ap = cortex_ap(target);
+	if (argc != 2)
+		return false;
+	uint32_t addr = strtoul(argv[1], NULL, 16);
+	DEBUG_INFO("%s(%x)\n", __func__, addr);
+	//	uint32_t reg = adiv5_dp_read(ap->dp, ADIV5_AP_BASE);
+	uint32_t val = adiv5_ap_read(ap, addr * 4U);
+
+	/* Format response as: "O.K.:0xe00ff003" */
+	gdb_outf("O.K.:0x%08" PRIx32 "\n", val);
+	return true;
 }
 
 static bool cortexm_vector_catch(target_s *target, int argc, const char **argv)
