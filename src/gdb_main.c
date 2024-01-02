@@ -889,19 +889,19 @@ void gdb_poll_target(void)
 			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGLOST);
 			break;
 		case TARGET_HALT_REQUEST:
-			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGINT);
+			gdb_putnotifpacket_f("Stop:T%02Xthread:1;core:0;", GDB_SIGINT);
 			break;
 		case TARGET_HALT_WATCHPOINT:
 			gdb_putnotifpacket_f("Stop:T%02Xthread:1;core:0;watch:%08" PRIX32 ";", GDB_SIGTRAP, watch);
 			break;
 		case TARGET_HALT_FAULT:
-			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGSEGV);
+			gdb_putnotifpacket_f("Stop:T%02Xthread:1;core:0;", GDB_SIGSEGV);
 			break;
 		case TARGET_HALT_RUNNING:
 			gdb_target_running = true;
 			break;
 		default:
-			gdb_putnotifpacket_f("Stop:X%02Xthread:1;core:0;", GDB_SIGTRAP);
+			gdb_putnotifpacket_f("Stop:T%02Xthread:1;core:0;", GDB_SIGTRAP);
 			break;
 		}
 		return;
