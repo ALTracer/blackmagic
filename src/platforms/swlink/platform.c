@@ -44,6 +44,47 @@ static uint32_t led_idlerun_port;
 static uint16_t led_idlerun_pin;
 static uint8_t rev;
 
+#ifdef GD32F3
+
+#define RCC_CFGR_USBPRE_SHIFT          22
+#define RCC_CFGR_USBPRE_MASK           (0x3 << RCC_CFGR_USBPRE_SHIFT)
+#define RCC_CFGR_USBPRE_PLL_CLK_DIV1_5 0x0
+#define RCC_CFGR_USBPRE_PLL_CLK_NODIV  0x1
+#define RCC_CFGR_USBPRE_PLL_CLK_DIV2_5 0x2
+#define RCC_CFGR_USBPRE_PLL_CLK_DIV2   0x3
+
+static const struct rcc_clock_scale rcc_hse_config_hse8_120mhz = {
+	/* hse8, pll to 120 */
+	.pll_mul = RCC_CFGR_PLLMUL_PLL_CLK_MUL15,
+	.pll_source = RCC_CFGR_PLLSRC_HSE_CLK,
+	.hpre = RCC_CFGR_HPRE_NODIV,
+	.ppre1 = RCC_CFGR_PPRE_DIV2,
+	.ppre2 = RCC_CFGR_PPRE_NODIV,
+	.adcpre = RCC_CFGR_ADCPRE_DIV8,
+	.flash_waitstates = 5, /* except WSEN is 0 and WSCNT don't care */
+	.prediv1 = RCC_CFGR2_PREDIV_NODIV,
+	.usbpre = RCC_CFGR_USBPRE_PLL_CLK_NODIV, /* libopencm3_stm32f1 hack */
+	.ahb_frequency = 120e6,
+	.apb1_frequency = 60e6,
+	.apb2_frequency = 120e6,
+};
+
+/* Set USB CK48M prescaler on GD32F30x before enabling RCC_APB1ENR_USBEN */
+static void rcc_set_usbpre_gd32f30x(uint32_t usbpre)
+{
+#if 1
+	/* NuttX style */
+	uint32_t regval = RCC_CFGR;
+	regval &= ~RCC_CFGR_USBPRE_MASK;
+	regval |= (usbpre << RCC_CFGR_USBPRE_SHIFT);
+	RCC_CFGR = regval;
+#else
+	/* libopencm3 style */
+	RCC_CFGR = (RCC_CFGR & ~RCC_CFGR_USBPRE_MASK) | (usbpre << RCC_CFGR_USBPRE_SHIFT);
+#endif
+}
+#endif
+
 static void adc_init(void);
 
 int platform_hwversion(void)
@@ -54,7 +95,14 @@ int platform_hwversion(void)
 void platform_init(void)
 {
 	SCS_DEMCR |= SCS_DEMCR_VC_MON_EN;
+#ifdef GD32F3
+	rcc_clock_setup_pll(&rcc_hse_config_hse8_120mhz);
+	/* Set 120/2.5=48MHz USB divisor before enabling PLL (and fixup libopencm3 resetting it to DIV1_5) */
+	rcc_set_usbpre_gd32f30x(RCC_CFGR_USBPRE_PLL_CLK_DIV2_5);
+	/* TODO: Alternatively, use CTC Clock Trim Controller with HSI48M for USB CK48M */
+#else
 	rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE8_72MHZ]);
+#endif
 	rev = detect_rev();
 	/* Enable peripherals */
 	rcc_periph_clock_enable(RCC_AFIO);

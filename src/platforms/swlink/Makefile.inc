@@ -6,7 +6,7 @@ CFLAGS += -mcpu=cortex-m3 -mthumb \
 	-DSTM32F1  -DDFU_SERIAL_LENGTH=9 -I../deps/libopencm3/include \
 	-I platforms/common/stm32
 LDFLAGS_BOOT := $(LDFLAGS) -lopencm3_stm32f1 -Lplatforms/swlink \
-	-Tswlink.ld --specs=nano.specs -nostartfiles -lc\
+	--specs=nano.specs -nostartfiles -lc \
 	-Wl,-Map=mapfile -mthumb -mcpu=cortex-m3 -Wl,-gc-sections \
 	-L../deps/libopencm3/lib
 LDFLAGS = $(LDFLAGS_BOOT) -Wl,-Ttext=0x8002000
@@ -19,6 +19,12 @@ endif
 
 ifeq ($(BLUEPILLPLUS), 1)
 CFLAGS += -DBLUEPILLPLUS
+endif
+ifeq ($(GD32F3), 1)
+CFLAGS += -DGD32F3
+LDFLAGS += -Wl,-T,gd32f303cc.ld
+else
+LDFLAGS += -Wl,-T,swlink.ld
 endif
 
 VPATH += platforms/common/stm32
@@ -43,7 +49,7 @@ all:	blackmagic.bin blackmagic_dfu.bin blackmagic_dfu.hex
 
 blackmagic_dfu.elf: usbdfu.o dfucore.o dfu_f1.o platform_common.o serialno.o
 	@echo "  LD      $@"
-	$(Q)$(CC) $^ -o $@ $(LDFLAGS_BOOT)
+	$(Q)$(CC) $^ -o $@ $(LDFLAGS_BOOT) -Wl,-T,swlink.ld
 
 host_clean:
 	-$(Q)$(RM) blackmagic.bin blackmagic_dfu blackmagic_dfu.bin blackmagic_dfu.hex
