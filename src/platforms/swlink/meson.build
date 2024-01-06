@@ -44,6 +44,10 @@ probe_swlink_args = [
 	'-DDFU_SERIAL_LENGTH=9',
 ]
 
+if probe == 'bluepillplus'
+	probe_swlink_args += ['-DBLUEPILLPLUS=1']
+endif
+
 probe_swlink_common_link_args = [
 	'-L@0@'.format(meson.current_source_dir()),
 	'-T@0@'.format('swlink.ld'),

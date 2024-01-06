@@ -47,6 +47,7 @@ probe_alias_map = {
 	'blackpill-f401ce': 'common/blackpill-f4',
 	'blackpill-f411ce': 'common/blackpill-f4',
 	'bluepill': 'stlink',
+	'bluepillplus' : 'swlink',
 }
 
 subdir(probe in probe_alias_map ? probe_alias_map[probe] : probe)
