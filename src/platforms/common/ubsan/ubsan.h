@@ -31,96 +31,84 @@
  * Public Types
  ****************************************************************************/
 
-enum type_kind_e
-{
-  TYPE_KIND_INT     = 0,
-  TYPE_KIND_FLOAT   = 1,
-  TYPE_KIND_UNKNOWN = 0xffff
+enum type_kind_e {
+	TYPE_KIND_INT = 0,
+	TYPE_KIND_FLOAT = 1,
+	TYPE_KIND_UNKNOWN = 0xffff
 };
 
-struct type_descriptor
-{
-  uint16_t type_kind;
-  uint16_t type_info;
-  char type_name[1];
+struct type_descriptor {
+	uint16_t type_kind;
+	uint16_t type_info;
+	char type_name[1];
 };
 
-struct source_location
-{
-  FAR const char *file_name;
-  union
-    {
-      unsigned long reported;
-      struct
-        {
-          uint32_t line;
-          uint32_t column;
-        };
-    };
+struct source_location {
+	FAR const char *file_name;
+
+	union {
+		unsigned long reported;
+
+		struct {
+			uint32_t line;
+			uint32_t column;
+		};
+	};
 };
 
-struct overflow_data
-{
-  struct source_location location;
-  FAR struct type_descriptor *type;
+struct overflow_data {
+	struct source_location location;
+	FAR struct type_descriptor *type;
 };
 
-struct type_mismatch_data
-{
-  struct source_location location;
-  FAR struct type_descriptor *type;
-  unsigned long alignment;
-  unsigned char type_check_kind;
+struct type_mismatch_data {
+	struct source_location location;
+	FAR struct type_descriptor *type;
+	unsigned long alignment;
+	unsigned char type_check_kind;
 };
 
-struct type_mismatch_data_v1
-{
-  struct source_location location;
-  FAR struct type_descriptor *type;
-  unsigned char log_alignment;
-  unsigned char type_check_kind;
+struct type_mismatch_data_v1 {
+	struct source_location location;
+	FAR struct type_descriptor *type;
+	unsigned char log_alignment;
+	unsigned char type_check_kind;
 };
 
-struct type_mismatch_data_common
-{
-  FAR struct source_location *location;
-  FAR struct type_descriptor *type;
-  unsigned long alignment;
-  unsigned char type_check_kind;
+struct type_mismatch_data_common {
+	FAR struct source_location *location;
+	FAR struct type_descriptor *type;
+	unsigned long alignment;
+	unsigned char type_check_kind;
 };
 
-struct nonnull_arg_data
-{
-  struct source_location location;
-  struct source_location attr_location;
-  int arg_index;
+struct nonnull_arg_data {
+	struct source_location location;
+	struct source_location attr_location;
+	int arg_index;
 };
 
-struct out_of_bounds_data
-{
-  struct source_location location;
-  FAR struct type_descriptor *array_type;
-  FAR struct type_descriptor *index_type;
+struct out_of_bounds_data {
+	struct source_location location;
+	FAR struct type_descriptor *array_type;
+	FAR struct type_descriptor *index_type;
 };
 
-struct shift_out_of_bounds_data
-{
-  struct source_location location;
-  FAR struct type_descriptor *lhs_type;
-  FAR struct type_descriptor *rhs_type;
+struct shift_out_of_bounds_data {
+	struct source_location location;
+	FAR struct type_descriptor *lhs_type;
+	FAR struct type_descriptor *rhs_type;
 };
 
-struct invalid_value_data
-{
-  struct source_location location;
-  FAR struct type_descriptor *type;
+struct invalid_value_data {
+	struct source_location location;
+	FAR struct type_descriptor *type;
 };
 
-struct alignment_assumption_data
-{
-  struct source_location location;
-  struct source_location assumption_location;
-  FAR struct type_descriptor *type;
+struct alignment_assumption_data {
+	struct source_location location;
+	struct source_location assumption_location;
+	FAR struct type_descriptor *type;
 };
 
 #endif /* __MM_UBSAN_UBSAN_H */

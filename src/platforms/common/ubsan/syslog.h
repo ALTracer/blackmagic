@@ -53,17 +53,16 @@ enum log_priority {
 
 /* Used with setlogmask() */
 
-#define LOG_MASK(p)   (1 << (p))
-#define LOG_UPTO(p)   ((1 << ((p)+1)) - 1)
-#define LOG_ALL       0xff
+#define LOG_MASK(p) (1 << (p))
+#define LOG_UPTO(p) ((1 << ((p) + 1)) - 1)
+#define LOG_ALL     0xff
 
 /****************************************************************************
  * Public Function Prototypes
  ****************************************************************************/
 
 #if defined(__cplusplus)
-extern "C"
-{
+extern "C" {
 #endif
 
 /****************************************************************************
@@ -85,8 +84,7 @@ extern "C"
  ****************************************************************************/
 
 void syslog(int priority, FAR const IPTR char *fmt, ...) sysloglike(2, 3);
-void vsyslog(int priority, FAR const IPTR char *fmt, va_list ap)
-     sysloglike(2, 0);
+void vsyslog(int priority, FAR const IPTR char *fmt, va_list ap) sysloglike(2, 0);
 
 int setlogmask(int mask);
 

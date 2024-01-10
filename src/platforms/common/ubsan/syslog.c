@@ -13,8 +13,8 @@ uint8_t g_syslog_mask = LOG_ALL;
 
 static char logbuf[192] = {0};
 
-int nx_vsyslog(int priority, const char *fmt, va_list *ap) {
-
+int nx_vsyslog(int priority, const char *fmt, va_list *ap)
+{
 	int ret = vsprintf(logbuf, fmt, *ap);
 	if (ret < 0) {
 		;
@@ -22,7 +22,8 @@ int nx_vsyslog(int priority, const char *fmt, va_list *ap) {
 	return fputs(logbuf, stdout);
 }
 
-void vsyslog(int priority, const char *fmt, va_list ap) {
+void vsyslog(int priority, const char *fmt, va_list ap)
+{
 	/* Check if this priority is enabled */
 	if ((g_syslog_mask & LOG_MASK(priority)) == 0) {
 		/* No, skip logging */
@@ -45,7 +46,8 @@ void vsyslog(int priority, const char *fmt, va_list ap) {
 #endif
 }
 
-void syslog(int priority, const char *fmt, ...) {
+void syslog(int priority, const char *fmt, ...)
+{
 	va_list ap;
 
 	/* Let vsyslog do the work */
@@ -57,10 +59,10 @@ void syslog(int priority, const char *fmt, ...) {
 
 int setlogmask(int mask)
 {
-  uint8_t oldmask;
+	uint8_t oldmask;
 
-  oldmask       = g_syslog_mask;
-  g_syslog_mask = (uint8_t)mask;
+	oldmask = g_syslog_mask;
+	g_syslog_mask = (uint8_t)mask;
 
-  return oldmask;
+	return oldmask;
 }
