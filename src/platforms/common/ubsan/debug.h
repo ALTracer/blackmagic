@@ -37,6 +37,7 @@
 
 #include "syslog.h"
 //#include <sys/uio.h>
+#include <assert.h>
 
 /****************************************************************************
  * Pre-processor Definitions

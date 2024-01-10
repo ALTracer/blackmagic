@@ -22,11 +22,13 @@
  * Included Files
  ****************************************************************************/
 
+#define _BSD_SOURCE 1
+#include <strings.h> //ffsl
+
 #include "nuttx_compiler.h"
 
 #include "debug.h"
 #include <stdio.h>
-#include <strings.h>
 
 #define PRId64      "lld"
 #define PRIu32      "lu"
@@ -157,6 +159,8 @@ static bool is_inline_int(FAR struct type_descriptor *type)
   return bits <= inline_bits;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
 static int64_t get_signed_val(FAR struct type_descriptor *type,
                               FAR void *val)
 {
@@ -172,6 +176,7 @@ static int64_t get_signed_val(FAR struct type_descriptor *type,
 
   return *(FAR int64_t *)val;
 }
+#pragma GCC diagnostic pop
 
 static bool val_is_negative(FAR struct type_descriptor *type, FAR void *val)
 {
@@ -381,4 +386,9 @@ void __ubsan_handle_pointer_overflow(FAR void *data,
                                      FAR void *ptr, FAR void *result)
 {
   ubsan_prologue_epilogue(data, "pointer-overflow");
+}
+
+void __ubsan_handle_invalid_builtin(FAR void *data)
+{
+  ubsan_prologue_epilogue(data, "invalid-builtin");
 }

@@ -115,7 +115,7 @@
  * Reference: Opengroup.org
  */
 
-#  define offsetof(a, b) __builtin_offsetof(a, b)
+//#  define offsetof(a, b) __builtin_offsetof(a, b)
 
 /* Attributes
  *
