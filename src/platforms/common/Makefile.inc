@@ -28,3 +28,5 @@ SRC +=             \
 	usb_serial.c   \
 	usb_dfu_stub.c \
 	aux_serial.c
+
+include platforms/common/ubsan/Makefile.inc
