@@ -746,6 +746,11 @@ bool cortexm_attach(target_s *target)
 			}
 		}
 	}
+
+	if (((target->cpuid & CORTEX_CPUID_PARTNO_MASK) == CORTEX_M3) ||
+		((target->cpuid & CORTEX_CPUID_PARTNO_MASK) == CORTEX_M4)) {
+		ap->tar_autoincr_bits = 12;
+	}
 	return true;
 }
 

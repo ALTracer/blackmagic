@@ -509,6 +509,10 @@ static bool cortexm_prepare(adiv5_access_port_s *ap)
 			return false;
 		}
 	}
+
+	/* Default to 10 bits of autoincr per ADIv5.2 */
+	ap->tar_autoincr_bits = 10;
+
 	/* Core is now in a good state */
 	return true;
 }
@@ -1167,6 +1171,8 @@ void advi5_mem_read_bytes(adiv5_access_port_s *const ap, void *dest, uint32_t sr
 
 	if (len == 0)
 		return;
+	/* Cortex-M3 and M4 are implementation defined to have 4 KiB autoincr boundaries */
+	const uint32_t autoincr_mask = (ap->tar_autoincr_bits == 12 ? 0xfffff000U : 0xfffffc00U);
 
 	len >>= align;
 	ap_mem_access_setup(ap, src, align);
@@ -1177,7 +1183,7 @@ void advi5_mem_read_bytes(adiv5_access_port_s *const ap, void *dest, uint32_t sr
 
 		src += 1U << align;
 		/* Check for 10 bit address overflow */
-		if ((src ^ osrc) & 0xfffffc00U) {
+		if ((src ^ osrc) & autoincr_mask) {
 			osrc = src;
 			adiv5_dp_low_access(ap->dp, ADIV5_LOW_WRITE, ADIV5_AP_TAR, src);
 			adiv5_dp_low_access(ap->dp, ADIV5_LOW_READ, ADIV5_AP_DRW, 0);
@@ -1191,6 +1197,9 @@ void adiv5_mem_write_bytes(adiv5_access_port_s *ap, uint32_t dest, const void *s
 {
 	uint32_t odest = dest;
 
+	/* Cortex-M3 and M4 are implementation defined to have 4 KiB autoincr boundaries */
+	const uint32_t autoincr_mask = (ap->tar_autoincr_bits == 12 ? 0xfffff000U : 0xfffffc00U);
+
 	len >>= align;
 	ap_mem_access_setup(ap, dest, align);
 	while (len--) {
@@ -1200,7 +1209,7 @@ void adiv5_mem_write_bytes(adiv5_access_port_s *ap, uint32_t dest, const void *s
 
 		dest += 1U << align;
 		/* Check for 10 bit address overflow */
-		if ((dest ^ odest) & 0xfffffc00U) {
+		if ((dest ^ odest) & autoincr_mask) {
 			odest = dest;
 			adiv5_dp_low_access(ap->dp, ADIV5_LOW_WRITE, ADIV5_AP_TAR, dest);
 		}

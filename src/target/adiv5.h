@@ -291,6 +291,9 @@ struct adiv5_access_port {
 	/* AP designer and partno */
 	uint16_t designer_code;
 	uint16_t partno;
+
+	/* MEM-AP implementation-defined auto address increment bits */
+	uint16_t tar_autoincr_bits;
 };
 
 uint8_t make_packet_request(uint8_t RnW, uint16_t addr);
