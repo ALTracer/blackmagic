@@ -348,14 +348,17 @@ void adiv5_ap_ref(adiv5_access_port_s *ap)
 
 static void adiv5_dp_unref(adiv5_debug_port_s *dp)
 {
-	if (--(dp->refcnt) == 0)
+	if (--(dp->refcnt) == 0) {
+		DEBUG_INFO("%s: %p+%zu\n", __func__, dp, sizeof(*dp));
 		free(dp);
+	}
 }
 
 void adiv5_ap_unref(adiv5_access_port_s *ap)
 {
 	if (--(ap->refcnt) == 0) {
 		adiv5_dp_unref(ap->dp);
+		DEBUG_INFO("%s: %p+%zu\n", __func__, ap, sizeof(*ap));
 		free(ap);
 	}
 }
@@ -855,6 +858,7 @@ adiv5_access_port_s *adiv5_new_ap(adiv5_debug_port_s *dp, uint8_t apsel)
 		DEBUG_ERROR("malloc: failed in %s\n", __func__);
 		return NULL;
 	}
+	DEBUG_INFO("%s: %p+%zu\n", __func__, result, sizeof(*result));
 	/* Copy the new AP into place and ref it */
 	memcpy(result, &ap, sizeof(*result));
 	adiv5_ap_ref(result);
@@ -869,6 +873,7 @@ static void rp_rescue_setup(adiv5_debug_port_s *dp)
 		DEBUG_ERROR("calloc: failed in %s\n", __func__);
 		return;
 	}
+	DEBUG_INFO("%s: %p+%zu\n", __func__, ap, sizeof(*ap));
 	ap->dp = dp;
 
 	rp_rescue_probe(ap);

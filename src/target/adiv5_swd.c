@@ -156,6 +156,7 @@ bool adiv5_swd_scan(const uint32_t targetid)
 		DEBUG_ERROR("calloc: failed in %s\n", __func__);
 		return false;
 	}
+	DEBUG_INFO("%s: %p+%zu\n", __func__, dp, sizeof(*dp));
 
 	dp->write_no_check = adiv5_swd_write_no_check;
 	dp->read_no_check = adiv5_swd_read_no_check;
@@ -217,6 +218,7 @@ bool adiv5_swd_scan(const uint32_t targetid)
 
 			/* Give up */
 			DEBUG_ERROR("No usable DP found\n");
+			DEBUG_INFO("%s: %p+%zu\n", __func__, dp, sizeof(*dp));
 			free(dp);
 			return false;
 		}
@@ -312,10 +314,11 @@ void adiv5_swd_multidrop_scan(adiv5_debug_port_s *const dp, const uint32_t targe
 
 		/* Allocate a new target DP for this instance */
 		adiv5_debug_port_s *const target_dp = calloc(1, sizeof(*dp));
-		if (!dp) { /* calloc failed: heap exhaustion */
+		if (!target_dp) { /* calloc failed: heap exhaustion */
 			DEBUG_ERROR("calloc: failed in %s\n", __func__);
 			break;
 		}
+		DEBUG_INFO("%s: %p+%zu\n", __func__, target_dp, sizeof(*target_dp));
 
 		/* Populate the target DP from the initial one */
 		memcpy(target_dp, dp, sizeof(*dp));
@@ -327,6 +330,7 @@ void adiv5_swd_multidrop_scan(adiv5_debug_port_s *const dp, const uint32_t targe
 	}
 
 	/* free the initial DP */
+	DEBUG_INFO("%s: %p+%zu\n", __func__, dp, sizeof(*dp));
 	free(dp);
 }
 

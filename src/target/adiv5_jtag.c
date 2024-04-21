@@ -45,6 +45,7 @@ void adiv5_jtag_dp_handler(const uint8_t dev_index)
 		DEBUG_ERROR("calloc: failed in %s\n", __func__);
 		return;
 	}
+	DEBUG_INFO("%s: %p+%zu\n", __func__, dp, sizeof(*dp));
 
 	dp->dev_index = dev_index;
 

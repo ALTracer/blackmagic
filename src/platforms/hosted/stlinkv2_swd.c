@@ -41,6 +41,7 @@ bool stlink_swd_scan(void)
 		DEBUG_ERROR("calloc: failed in %s\n", __func__);
 		return false;
 	}
+	DEBUG_INFO("%s: %p+%zu\n", __func__, dp, sizeof(*dp));
 
 	dp->dp_read = adiv5_swd_read;
 	dp->error = stlink_adiv5_clear_error;
