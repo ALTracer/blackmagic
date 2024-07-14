@@ -306,6 +306,49 @@ void gdb_putpacket(const char *const packet, const size_t size)
 	} while (!noackmode && gdb_if_getchar_to(2000) != GDB_PACKET_ACK && tries++ < 3U);
 }
 
+void gdb_putrle(char *packet, const void *const mem, const size_t size)
+{
+	// callsite was: gdb_putpacket(hexify(pbuf, mem, len), len * 2U);
+	/* First, transmute the binary bytes into hex representation */
+	packet = hexify(packet, mem, size);
+	size_t newsize = 0; //2U * size;
+	char *newpacket = calloc(1024, 1);
+	/* Second, look for repeating patterns and apply run-length encoding */
+	char sym = packet[0];
+	char rle[3] = "0*a"; // 32 chars of '0'
+	uint32_t run_length = 0;
+	for (size_t i = 0; i < size * 2U; i++) {
+		if (packet[i] == sym) {
+			run_length++;
+		} else {
+			run_length = 0;
+			sym = packet[i];
+			newpacket[newsize] = packet[i];
+			newsize++;
+			continue;
+		}
+		if (run_length == 64) {
+			rle[0] = sym;
+			rle[1] = '*';
+			rle[2] = run_length + 29;
+			run_length = 0;
+
+			memcpy(&newpacket[newsize], rle, 3);
+			//TODO: memmove the rest of packet back in-place?
+			run_length = 0;
+			newsize += 3;
+		}
+	}
+	/* Copy the leftovers verbatim */
+	if (run_length > 0) {
+		memcpy(&newpacket[newsize], &packet[size * 2U - run_length], run_length);
+		newsize += run_length;
+	}
+
+	/* Finally, send the result as m-response (read hex-encoded bytes) */
+	return gdb_putpacket(packet, newsize);
+}
+
 void gdb_put_notification(const char *const packet, const size_t size)
 {
 	char xmit_csum[3];

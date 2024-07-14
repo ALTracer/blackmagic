@@ -147,7 +147,7 @@ int32_t gdb_main_loop(target_controller_s *tc, char *pbuf, size_t pbuf_size, siz
 			if (target_mem32_read(cur_target, mem, addr, len))
 				gdb_putpacketz("E01");
 			else
-				gdb_putpacket(hexify(pbuf, mem, len), len * 2U);
+				gdb_putrle(pbuf, mem, len); //gdb_putpacket(hexify(pbuf, mem, len), len * 2U);
 		} else
 			gdb_putpacketz("EFF");
 		break;
