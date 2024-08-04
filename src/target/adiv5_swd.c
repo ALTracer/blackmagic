@@ -419,6 +419,7 @@ uint32_t adiv5_swd_raw_access(adiv5_debug_port_s *dp, const uint8_t rnw, const u
 
 	if (ack != SWDP_ACK_OK) {
 		DEBUG_ERROR("SWD access has invalid ack %x\n", ack);
+		print_backtrace_here();
 		raise_exception(EXCEPTION_ERROR, "SWD invalid ACK");
 	}
 
@@ -426,6 +427,7 @@ uint32_t adiv5_swd_raw_access(adiv5_debug_port_s *dp, const uint8_t rnw, const u
 		if (!swd_proc.seq_in_parity(&response, 32U)) { /* Give up on parity error */
 			dp->fault = 1U;
 			DEBUG_ERROR("SWD access resulted in parity error\n");
+			print_backtrace_here();
 			raise_exception(EXCEPTION_ERROR, "SWD parity error");
 		}
 	} else

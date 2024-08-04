@@ -267,4 +267,6 @@ uint32_t adiv5_jtag_raw_access(adiv5_debug_port_s *dp, uint8_t rnw, uint16_t add
 uint32_t adiv5_jtag_clear_error(adiv5_debug_port_s *dp, bool protocol_recovery);
 void adiv5_jtag_abort(adiv5_debug_port_s *dp, uint32_t abort);
 
+extern void print_backtrace_here(void);
+
 #endif /* TARGET_ADIV5_H */

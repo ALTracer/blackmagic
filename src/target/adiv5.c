@@ -1462,3 +1462,8 @@ void decode_access(const uint16_t addr, const uint8_t rnw, const uint8_t apsel, 
 		decode_dp_access(addr & 0xffU, rnw, value);
 }
 #endif
+
+/* Nop out the backtrace for BMDA and for release firmware */
+#if PC_HOSTED == 1 || ENABLE_DEBUG == 0
+void print_backtrace_here(void){};
+#endif

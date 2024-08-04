@@ -126,6 +126,7 @@ uint32_t adiv5_jtag_raw_access(adiv5_debug_port_s *dp, uint8_t rnw, uint16_t add
 
 	if (ack != JTAGDP_ACK_OK) {
 		DEBUG_ERROR("JTAG access resulted in: %" PRIx32 ":%x\n", result, ack);
+		print_backtrace_here();
 		raise_exception(EXCEPTION_ERROR, "JTAG-DP invalid ACK");
 	}
 
