@@ -187,6 +187,7 @@ __attribute__((used)) void *_sbrk(const ptrdiff_t alloc_size)
 	return result;
 }
 
+#if ENABLE_DEBUG == 0
 /* ARM EABI Personality functions for newlib-4.3.0 */
 __attribute__((weak)) void __aeabi_unwind_cpp_pr0()
 {
@@ -199,3 +200,66 @@ __attribute__((weak)) void __aeabi_unwind_cpp_pr1()
 __attribute__((weak)) void __aeabi_unwind_cpp_pr2()
 {
 }
+
+#else // ENABLE_DEBUG
+
+#include <unwind.h> // GCC's internal unwinder, part of libgcc
+
+/* Helper for -mpoke-function-name */
+static const char *unwind_get_func_name(const _Unwind_Ptr address)
+{
+	/* Look backwards, before function start/base address */
+	uint32_t flag_word = *(uint32_t *)(address - 4);
+	/* Marker set, likely has valid string pointer */
+	if ((flag_word & 0xff000000U) == 0xff000000U)
+		return (const char *)(address - 4 - (flag_word & 0x00ffffffU));
+	return "unknown";
+}
+
+/* Callback to log the formatted backtrace as it is walked */
+_Unwind_Reason_Code trace_func(_Unwind_Context *ctx, void *d)
+{
+	int *depth = (int *)d;
+	static _Unwind_Word lastPC = 0;
+	const _Unwind_Word thisPC = _Unwind_GetIP(ctx);
+	/* Current frame $PC is equal to virtual $PC: actual end of stack */
+	if (thisPC == lastPC) {
+		lastPC = 0;
+		return _URC_END_OF_STACK;
+	}
+	const _Unwind_Word thisSP = _Unwind_GetGR(ctx, 13);
+	const _Unwind_Word thisFP = _Unwind_GetGR(ctx, 7);
+	const _Unwind_Ptr func_base = _Unwind_GetRegionStart(ctx);
+	const char *func_name = unwind_get_func_name(func_base);
+	const _Unwind_Word func_progress = thisPC - func_base;
+
+	printf("\t#%d: %s@%08x+%u ($PC=%08x, $SP=%08x, $FP=%08x)\r\n", *depth, func_name, func_base, func_progress, thisPC,
+		thisSP, thisFP);
+	(*depth)++;
+	/* Too deep, bail out */
+	if (*depth > 256) {
+		lastPC = 0;
+		return _URC_END_OF_STACK;
+	}
+
+	lastPC = thisPC;
+	return _URC_NO_REASON;
+}
+
+void print_backtrace_here(void)
+{
+	int depth = 0;
+	_Unwind_Backtrace(&trace_func, &depth);
+}
+
+#include <signal.h>
+__attribute__((noreturn)) void _exit(int status);
+
+void abort(void)
+{
+	print_backtrace_here();
+	raise(SIGABRT);
+	_exit(1);
+}
+
+#endif //ENABLE_DEBUG
