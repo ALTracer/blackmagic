@@ -338,9 +338,24 @@ bool target_mem64_write(target_s *const target, const target_addr64_t dest, cons
 
 bool target_mem_access_needs_halt(target_s *t)
 {
-	/* assume all arm processors allow memory access while running, and no riscv does. */
-	bool is_riscv = t && t->core && strstr(t->core, "RVDBG");
-	return is_riscv;
+	/*
+	 * Assume all Cortex-M processors allow memory access while running,
+	 * no Cortex-A/R does and no RISC-V does.
+	 */
+
+	/* no target, or a null core */
+	if (!t || !t->core)
+		return false;
+	/* Cortex-M */
+	if (t->core[0] == 'M')
+		return true;
+	/* Cortex-A/R */
+	if ((t->core[0] == 'A') || (t->core[0] == 'R'))
+		return false;
+	/* RISC-V */
+	if ((!strcmp(t->core, "rv32")) || (!strcmp(t->core, "rv64")))
+		return true;
+	return false;
 }
 
 /* Register access functions */
