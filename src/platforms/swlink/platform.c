@@ -97,7 +97,13 @@ void platform_init(void)
 	SCS_DEMCR |= SCS_DEMCR_VC_MON_EN;
 #ifdef GD32F3
 	rcc_clock_setup_pll(&rcc_hse_config_hse8_120mhz);
-	/* Set 120/2.5=48MHz USB divisor before enabling PLL (and fixup libopencm3 resetting it to DIV1_5) */
+
+	/* Disable USB clock (after bootloaders) before changing prescaler */
+	rcc_periph_clock_disable(RCC_USB);
+	//	if (RCC->APB1ENR & RCC_APB1ENR_USBEN)
+	//		RCC->APB1ENR &= ~RCC_APB1ENR_USBEN;
+
+	/* Set 120/2.5=48MHz USB divisor before enabling APB1 USBD clock (and fixup libopencm3 resetting it to 0 for DIV1_5) */
 	rcc_set_usbpre_gd32f30x(RCC_CFGR_USBPRE_PLL_CLK_DIV2_5);
 	/* TODO: Alternatively, use CTC Clock Trim Controller with HSI48M for USB CK48M */
 #else
