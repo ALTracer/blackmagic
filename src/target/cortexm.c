@@ -200,6 +200,14 @@ static void cortexm_cache_clean(
 
 	/* flush data cache for RAM regions that intersect requested region */
 	const target_addr32_t mem_end = addr + len; /* following code is NOP if wraparound */
+
+	/* Do not attempt to flush in PPB as it's not cacheable */
+	if ((addr >= CORTEXM_PPB_BASE) && (mem_end <= CORTEXM_PPB_BASE + 0x00100000U))
+		return;
+	/* Do not attempt to flush AHB/APB peripherals either (like DBGMCU on CM0, CM33) */
+	if ((addr >= 0x40000000U) && (mem_end <= 0x60000000U))
+		return;
+
 	/* requested region is [src, src_end) */
 	for (target_ram_s *ram = target->ram; ram; ram = ram->next) {
 		target_addr32_t region_start = ram->start;
