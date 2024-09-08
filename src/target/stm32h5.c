@@ -229,6 +229,11 @@ bool stm32h5_probe(target_s *const target)
 		target_add_ram32(target, STM32H5_SRAM2_BASE, STM32H5_SRAM2_SIZE);
 		target_add_ram32(target, STM32H5_SRAM3_BASE, STM32H5_SRAM3_SIZE);
 
+		/* H563 AHB1/2/3, APB1/2/3 */
+		target_add_ram32(target, 0x40000000U, 0x04024400U);
+		/* H563 AHB4 0x4600_5000..0x4700_1800*/
+		target_add_ram32(target, 0x46005000U, 0x00ffc800U);
+
 		/* Build the Flash map */
 		stm32h5_add_flash(target, STM32H5_FLASH_BANK1_BASE, STM32H5_FLASH_BANK_SIZE,
 			STM32H5_SECTORS_PER_BANK | STM32H5_FLASH_CTRL_BANK1);
@@ -245,6 +250,9 @@ bool stm32h5_probe(target_s *const target)
 		target_add_ram32(target, STM32H503_SRAM1_ALIAS, STM32H503_SRAM1_SIZE);
 		target_add_ram32(target, STM32H503_SRAM2_ALIAS, STM32H503_SRAM2_SIZE);
 
+		/* H503 AHB1/2/3, APB1/2/3 */
+		target_add_ram32(target, 0x40000000U, 0x04024400U);
+
 		/* Build the Flash map */
 		stm32h5_add_flash(target, STM32H503_FLASH_BANK1_BASE, STM32H503_FLASH_BANK_SIZE,
 			STM32H503_SECTORS_PER_BANK | STM32H5_FLASH_CTRL_BANK1);
@@ -252,6 +260,9 @@ bool stm32h5_probe(target_s *const target)
 			STM32H503_SECTORS_PER_BANK | STM32H5_FLASH_CTRL_BANK2);
 		break;
 	}
+
+	/* Cortex-M33 PPB and ROM tables: 0xe000_0000..0xe010_0000 */
+	target_add_ram32(target, 0xe0000000U, 0x00100000U);
 
 	return true;
 }
