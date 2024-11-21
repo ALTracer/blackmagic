@@ -362,8 +362,15 @@ bool cortexm_probe(adiv5_access_port_s *ap)
 	/* Check cache type */
 	const uint32_t cache_type = target_mem32_read32(target, CORTEXM_CTR);
 	if (cache_type >> CORTEX_CTR_FORMAT_SHIFT == CORTEX_CTR_FORMAT_ARMv7) {
-		priv->base.icache_line_length = CORTEX_CTR_ICACHE_LINE(cache_type);
-		priv->base.dcache_line_length = CORTEX_CTR_DCACHE_LINE(cache_type);
+		/* If there is an ICache defined, decompress its length to a uint32_t count */
+		if (cache_type & CORTEX_CTR_ICACHE_LINE_MASK)
+			priv->base.icache_line_length = CORTEX_CTR_ICACHE_LINE(cache_type);
+		/* If there is a DCache defined, decompress its length to a uint32_t count */
+		if ((cache_type >> CORTEX_CTR_DCACHE_LINE_SHIFT) & CORTEX_CTR_DCACHE_LINE_MASK)
+			priv->base.dcache_line_length = CORTEX_CTR_DCACHE_LINE(cache_type);
+
+		DEBUG_TARGET("%s: ICache line length = %u, DCache line length = %u\n", __func__,
+			priv->base.icache_line_length * 4U, priv->base.dcache_line_length * 4U);
 	} else
 		target_check_error(target);
 
