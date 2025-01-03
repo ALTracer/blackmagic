@@ -1506,8 +1506,8 @@ static target_halt_reason_e cortexar_halt_poll(target_s *const target, target_ad
 		const bool thumb_mode = priv->core_regs.cpsr & CORTEXAR_CPSR_THUMB;
 		const bool svc_mode = priv->core_regs.cpsr & CORTEXAR_CPSR_MODE_SVC;
 		/* May also end up in SVC_Handler, not its callsite */
-		const uint32_t link_register = priv->core_regs.r[14];
-		const uint32_t program_counter = priv->core_regs.r[15];
+		const uint32_t link_register = priv->core_regs.r[CORTEX_REG_LR];
+		const uint32_t program_counter = priv->core_regs.r[CORTEX_REG_PC];
 		const uint32_t insn1 = target_mem32_read32(target, program_counter);
 
 		bool is_semihosting_call_direct = cortexar_detect_semihosting_trap(insn1, thumb_mode);
@@ -1808,7 +1808,7 @@ static bool cortexar_hostio_request(target_s *const target)
 	/* Step over that instruction by incrementing PC */
 	const bool thumb_mode = priv->core_regs.cpsr & CORTEXAR_CPSR_THUMB;
 	const uint32_t insn_width = (thumb_mode ? 2 : 4);
-	priv->core_regs.r[15U] += insn_width;
+	priv->core_regs.r[CORTEX_REG_PC] += insn_width;
 
 	/* Return if the request was in any way interrupted */
 	return target->tc->interrupted;
