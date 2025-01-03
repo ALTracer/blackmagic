@@ -52,6 +52,7 @@
 #include "cortex.h"
 #include "cortexar.h"
 #include "cortex_internal.h"
+#include "semihosting.h"
 #include "gdb_reg.h"
 #include "gdb_packet.h"
 #include "maths_utils.h"
@@ -119,6 +120,7 @@ typedef struct cortexar_priv {
 #define CORTEXAR_DBG_DSCR_MOE_BKPT_INSN      0x0000000cU
 #define CORTEXAR_DBG_DSCR_MOE_EXTERNAL_DBG   0x00000010U
 #define CORTEXAR_DBG_DSCR_MOE_VEC_CATCH      0x00000014U
+#define CORTEXAR_DBG_DSCR_MOE_OS_UNLOCK      0x00000020U
 #define CORTEXAR_DBG_DSCR_MOE_SYNC_WATCH     0x00000028U
 #define CORTEXAR_DBG_DSCR_SYNC_DATA_ABORT    (1U << 6U)
 #define CORTEXAR_DBG_DSCR_INTERRUPT_DISABLE  (1U << 11U)
@@ -401,6 +403,7 @@ static bool cortexar_halt_and_wait(target_s *target);
 static int cortexar_breakwatch_set(target_s *target, breakwatch_s *breakwatch);
 static int cortexar_breakwatch_clear(target_s *target, breakwatch_s *breakwatch);
 static void cortexar_config_breakpoint(target_s *target, size_t slot, uint32_t mode, target_addr_t addr);
+static bool cortexar_hostio_request(target_s *const target);
 
 bool cortexar_attach(target_s *target);
 void cortexar_detach(target_s *target);
@@ -1394,6 +1397,33 @@ static void cortexar_reset(target_s *const target)
 	target_check_error(target);
 }
 
+static bool cortexar_detect_semihosting_trap(const uint32_t instruction, const bool thumb_mode)
+{
+	/*
+     * There are four possibilities to encode a breakpoint instruction
+     * used to indicate a semihosting call.
+     * In 2.0 spec ARM recommends switching away from SVC to HLT
+     * but debuggers have to support both pairs.
+     */
+	bool is_semihosting_call = false;
+
+	/* A32-SVC: 0xef123456, that is SVC(0x123456) */
+	if (!thumb_mode && (instruction == 0xef123456U))
+		is_semihosting_call = true;
+	/* T32-SVC: 0xdfab, that is SVC(0xab) */
+	if (thumb_mode && ((uint16_t)instruction == 0xdfabU))
+		is_semihosting_call = true;
+	/* A32-HLT: 0xe10f0070, that is HLT(0xf000) */
+	if (!thumb_mode && (instruction == 0xe10f0070U))
+		is_semihosting_call = true;
+	/* T32-HLT: 0xbabc, that is HLT(0x3c) */
+	if (thumb_mode && ((uint16_t)instruction == 0xbabcU))
+		is_semihosting_call = true;
+
+	/* TODO: A64-HLT: 0xd45e0000, that is HLT(0xf000) */
+	return is_semihosting_call;
+}
+
 static void cortexar_halt_request(target_s *const target)
 {
 	TRY (EXCEPTION_TIMEOUT) {
@@ -1463,6 +1493,39 @@ static target_halt_reason_e cortexar_halt_poll(target_s *const target, target_ad
 			reason = TARGET_HALT_BREAKPOINT;
 		break;
 	}
+	}
+	/* Detect SVC vector catch */
+	const bool vec_catch = ((dscr & CORTEXAR_DBG_DSCR_MOE_MASK) == CORTEXAR_DBG_DSCR_MOE_VEC_CATCH);
+	/* DBG.BCR/BVR-configured (by BMD) breakpoint hit */
+	const bool debugunit_breakpoint = ((dscr & CORTEXAR_DBG_DSCR_MOE_MASK) == CORTEXAR_DBG_DSCR_MOE_BREAKPOINT);
+	/* A literal coded BKPT was committed for execution (e.g. deeper in SVC_Handler) -- note that A+R Semihosting ABI uses SVC/HLT not BKPT. */
+	const bool bkpt_insn = ((dscr & CORTEXAR_DBG_DSCR_MOE_MASK) == CORTEXAR_DBG_DSCR_MOE_BKPT_INSN);
+	if (vec_catch || debugunit_breakpoint || bkpt_insn) {
+		const cortexar_priv_s *const priv = (cortexar_priv_s *)target->priv;
+		/* If we've hit a programmed breakpoint, check for semihosting call. */
+		const bool thumb_mode = priv->core_regs.cpsr & CORTEXAR_CPSR_THUMB;
+		const bool svc_mode = priv->core_regs.cpsr & CORTEXAR_CPSR_MODE_SVC;
+		/* May also end up in SVC_Handler, not its callsite */
+		const uint32_t link_register = priv->core_regs.r[14];
+		const uint32_t program_counter = priv->core_regs.r[15];
+		const uint32_t insn1 = target_mem32_read32(target, program_counter);
+
+		bool is_semihosting_call_direct = cortexar_detect_semihosting_trap(insn1, thumb_mode);
+		bool is_semihosting_call_indirect = false;
+		uint32_t insn2 = 0;
+		if (svc_mode) {
+			insn2 = target_mem32_read32(target, link_register);
+			is_semihosting_call_indirect = cortexar_detect_semihosting_trap(insn2, thumb_mode);
+		}
+		DEBUG_TARGET("%s: R15/$PC=0x%08X, insn1=0x%08X; R14/$LR=0x%08X, insn2=0x%08X; DBGDSCR=0x%08X, CPSR=0x%08X\n",
+			__func__, program_counter, insn1, link_register, insn2, dscr, priv->core_regs.cpsr);
+
+		if (is_semihosting_call_direct || is_semihosting_call_indirect) {
+			if (cortexar_hostio_request(target))
+				reason = TARGET_HALT_REQUEST;
+			else
+				reason = TARGET_HALT_RUNNING;
+		}
 	}
 	/* Check if we halted because we were actually single-stepping */
 	return reason;
@@ -1727,6 +1790,28 @@ static int cortexar_breakwatch_clear(target_s *const target, breakwatch_s *const
 		/* If the breakwatch type is not one of the above, tell the debugger wed on't support it */
 		return 1;
 	}
+}
+
+static bool cortexar_hostio_request(target_s *const target)
+{
+	cortexar_priv_s *const priv = (cortexar_priv_s *)target->priv;
+	/* The call number and argument are already in regcache, no need to access the target for this */
+	const uint32_t syscall = priv->core_regs.r[0U];
+	const uint32_t r1 = priv->core_regs.r[1U];
+
+	/* Hand off to the main semihosting implementation */
+	const int32_t result = semihosting_request(target, syscall, r1);
+
+	/* Write the result back to the regcache */
+	priv->core_regs.r[0U] = (uint32_t)result;
+
+	/* Step over that instruction by incrementing PC */
+	const bool thumb_mode = priv->core_regs.cpsr & CORTEXAR_CPSR_THUMB;
+	const uint32_t insn_width = (thumb_mode ? 2 : 4);
+	priv->core_regs.r[15U] += insn_width;
+
+	/* Return if the request was in any way interrupted */
+	return target->tc->interrupted;
 }
 
 /*
