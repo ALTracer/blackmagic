@@ -48,9 +48,11 @@
 #include <assert.h>
 
 static bool cortexm_vector_catch(target_s *target, int argc, const char **argv);
+static bool cortexm_pcsample_cmd(target_s *target, int argc, const char **argv);
 
 const command_s cortexm_cmd_list[] = {
 	{"vector_catch", cortexm_vector_catch, "Catch exception vectors"},
+	{"pcsample", cortexm_pcsample_cmd, "Toggle sampling PC via DWT_PCSR"},
 	{NULL, NULL, NULL},
 };
 
@@ -71,6 +73,10 @@ static int cortexm_fault_unwind(target_s *target);
 static int cortexm_breakwatch_set(target_s *target, breakwatch_s *breakwatch);
 static int cortexm_breakwatch_clear(target_s *target, breakwatch_s *breakwatch);
 static target_addr_t cortexm_check_watch(target_s *target);
+#ifdef PLATFORM_HAS_TRACESWO
+static void cortexm_pcsample_poll(target_s *target);
+bool cortexm_pcsample_enable = false;
+#endif
 
 static bool cortexm_hostio_request(target_s *target);
 
@@ -847,6 +853,12 @@ static target_halt_reason_e cortexm_halt_poll(target_s *target, target_addr64_t 
 		return TARGET_HALT_RUNNING;
 	}
 
+#ifdef PLATFORM_HAS_TRACESWO
+	/* Record PC samples of a running core */
+	if ((dhcsr & CORTEXM_DHCSR_C_HALT) == 0U && cortexm_pcsample_enable)
+		cortexm_pcsample_poll(target);
+#endif
+
 	/* Check that the core actually halted */
 	if (!(dhcsr & CORTEXM_DHCSR_S_HALT))
 		return TARGET_HALT_RUNNING;
@@ -1229,6 +1241,62 @@ static target_addr_t cortexm_check_watch(target_s *target)
 		return 0;
 
 	return target_mem32_read32(target, CORTEXM_DWT_COMP(i));
+}
+
+#ifdef PLATFORM_HAS_TRACESWO
+#include "usb.h"
+#include "buffer_utils.h"
+
+static uint8_t pc_samples[60U] = {0};
+static uint32_t pc_sample_tail = 0U;
+
+static void cortexm_pcsample_poll(target_s *target)
+{
+	/* Assuming DEMCR TRCENA is set and DWT_CYCCNTENA is set earlier */
+	const uint32_t dwt_pcsr = target_mem32_read32(target, CORTEXM_DWT_PCSR);
+	/* Construct an SWO DWT hardware event packet: [0x17, LE 4-byte code address] (or [0x15 0x00] for WFI) */
+	pc_samples[pc_sample_tail++] = 0x17U;
+	write_le4(pc_samples, pc_sample_tail, dwt_pcsr);
+	pc_sample_tail += 4U;
+
+	if (pc_sample_tail == 60U) {
+		/* Post to SWO pipe */
+		usbd_ep_write_packet(usbdev, SWO_ENDPOINT, pc_samples, pc_sample_tail);
+		pc_sample_tail = 0U;
+	}
+}
+#endif
+
+static bool cortexm_pcsample_cmd(target_s *target, int argc, const char **argv)
+{
+#ifndef PLATFORM_HAS_TRACESWO
+	(void)argc;
+	(void)argv;
+	tc_printf(target, "Platform is not SWO-capable\n.");
+	return false;
+#else
+	if (argc != 2) {
+		tc_printf(target, "DWT PC-sampling %s. Say `monitor pcsample (enable|disable)` to change.\n",
+			cortexm_pcsample_enable ? "enabled" : "disabled");
+		return true;
+	}
+	bool enable = false;
+	if (parse_enable_or_disable(argv[1], &enable)) {
+		cortexm_pcsample_enable = enable;
+#if 0
+		/* If DWT cycle counter is not running, enable it because we need it. Do not stop it on `disable` because firmware might need it. */
+		uint32_t dwt_ctrl = target_mem32_read32(target, CORTEXM_DWT_CTRL);
+		if (enable)
+			if (dwt_ctrl & CORTEXM_DWT_CTRL_CYCCNTENA == 0U)
+				dwt_ctrl |= CORTEXM_DWT_CTRL_CYCCNTENA;
+		target_mem32_write32(target, CORTEXM_DWT_CTRL, dwt_ctrl);
+#endif
+		tc_printf(target, "%s DWT PC-sampling. Use SWO endpoint for data.\n",
+			cortexm_pcsample_enable ? "Enabled" : "Disabled");
+		return true;
+	}
+	return false;
+#endif
 }
 
 static bool cortexm_vector_catch(target_s *target, int argc, const char **argv)

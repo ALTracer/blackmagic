@@ -65,9 +65,12 @@ extern unsigned cortexm_wait_timeout;
 #define CORTEXM_DWT_BASE (CORTEXM_PPB_BASE + 0x1000U)
 
 #define CORTEXM_DWT_CTRL    (CORTEXM_DWT_BASE + 0x000U)
+#define CORTEXM_DWT_PCSR    (CORTEXM_DWT_BASE + 0x01cU)
 #define CORTEXM_DWT_COMP(i) (CORTEXM_DWT_BASE + 0x020U + (0x10U * (i)))
 #define CORTEXM_DWT_MASK(i) (CORTEXM_DWT_BASE + 0x024U + (0x10U * (i)))
 #define CORTEXM_DWT_FUNC(i) (CORTEXM_DWT_BASE + 0x028U + (0x10U * (i)))
+
+#define CORTEXM_DWT_CTRL_CYCCNTENA (1U << 0U)
 
 /* Application Interrupt and Reset Control Register (AIRCR) */
 #define CORTEXM_AIRCR_VECTKEY (0x05faU << 16U)
