@@ -29,6 +29,21 @@
 uintptr_t app_address = 0x08002000;
 int dfu_activity_counter = 0;
 
+const struct rcc_clock_scale rcc_config_in_hse_8mhz_out_72mhz = {
+	/* hse8, pll to 72 */
+	.pll_mul = RCC_CFGR_PLLMUL_PLL_CLK_MUL9,
+	.pll_source = RCC_CFGR_PLLSRC_HSE_CLK,
+	.hpre = RCC_CFGR_HPRE_NODIV,
+	.ppre1 = RCC_CFGR_PPRE_DIV2,
+	.ppre2 = RCC_CFGR_PPRE_NODIV,
+	.adcpre = RCC_CFGR_ADCPRE_DIV8,
+	.flash_waitstates = 2,
+	.prediv1 = RCC_CFGR2_PREDIV_NODIV,
+	.ahb_frequency = 72000000,
+	.apb1_frequency = 36000000,
+	.apb2_frequency = 72000000,
+};
+
 void dfu_detach(void)
 {
 	/* USB device must detach, we just reset... */
@@ -44,7 +59,7 @@ int main(void)
 
 	dfu_protect(false);
 
-	rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE8_72MHZ]);
+	rcc_clock_setup_pll(&rcc_config_in_hse_8mhz_out_72mhz);
 	systick_set_clocksource(STK_CSR_CLKSOURCE_AHB_DIV8);
 	systick_set_reload(900000);
 
