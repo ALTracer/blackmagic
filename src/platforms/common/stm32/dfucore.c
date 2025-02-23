@@ -47,6 +47,8 @@
 
 #include <libopencm3/usb/usbd.h>
 #include <libopencm3/usb/dfu.h>
+#include <libopencm3/usb/bos.h>
+#include <libopencm3/usb/microsoft.h>
 
 #include "usbdfu.h"
 #include "usb_types.h"
@@ -131,6 +133,116 @@ const usb_config_descriptor_s config = {
 
 	.interface = ifaces,
 };
+
+#define DFU_WINUSB_DESCRIPTORS 1
+#ifdef DFU_WINUSB_DESCRIPTORS
+#define DESCRIPTOR_SETS                1U
+#define PROPERTY_DEVICE_INTERFACE_GUID u"DeviceInterfaceGUID"
+#define VALUE_DFU_INTERFACE_GUID       u"{76be5ca1-e304-4b32-be5f-d9369d3d201a}"
+
+static const struct {
+	microsoft_os_feature_compatible_id_descriptor driver_binding;
+	microsoft_os_feature_registry_property_descriptor interface_guid;
+} microsoft_os_dfu_if_features = {
+	.driver_binding =
+		{
+			.header =
+				{
+					.wLength = MICROSOFT_OS_FEATURE_COMPATIBLE_ID_DESCRIPTOR_SIZE,
+					.wDescriptorType = MICROSOFT_OS_FEATURE_COMPATIBLE_ID,
+				},
+			.compatible_id = MICROSOFT_OS_COMPATIBLE_ID_WINUSB,
+			.sub_compatible_id = MICROSOFT_OS_COMPATIBLE_ID_NONE,
+		},
+	.interface_guid =
+		{
+			.header =
+				{
+					.wDescriptorType = MICROSOFT_OS_FEATURE_REG_PROPERTY,
+				},
+			.wPropertyDataType = REG_SZ,
+			.wPropertyNameLength = ARRAY_LENGTH(PROPERTY_DEVICE_INTERFACE_GUID) * 2U,
+			.PropertyName = PROPERTY_DEVICE_INTERFACE_GUID,
+			.wPropertyDataLength = ARRAY_LENGTH(VALUE_DFU_INTERFACE_GUID) * 2U,
+			.PropertyData = VALUE_DFU_INTERFACE_GUID,
+		},
+};
+
+static const microsoft_os_descriptor_function_subset_header microsoft_os_descriptor_function_subsets[] = {
+	{
+		.wLength = MICROSOFT_OS_DESCRIPTOR_FUNCTION_SUBSET_HEADER_SIZE,
+		.wDescriptorType = MICROSOFT_OS_SUBSET_HEADER_FUNCTION,
+		.bFirstInterface = 0,
+		.bReserved = 0,
+		.wTotalLength = 0,
+
+		.feature_descriptors = &microsoft_os_dfu_if_features,
+		.num_feature_descriptors = 2,
+	},
+};
+
+static const microsoft_os_descriptor_config_subset_header microsoft_os_descriptor_config_subset = {
+	.wLength = MICROSOFT_OS_DESCRIPTOR_CONFIG_SUBSET_HEADER_SIZE,
+	.wDescriptorType = MICROSOFT_OS_SUBSET_HEADER_CONFIGURATION,
+	.bConfigurationValue = 0,
+	.bReserved = 0,
+	.wTotalLength = 0,
+
+	.function_subset_headers = microsoft_os_descriptor_function_subsets,
+	.num_function_subset_headers = ARRAY_LENGTH(microsoft_os_descriptor_function_subsets),
+};
+
+static const microsoft_os_descriptor_set_header microsoft_os_descriptor_sets[DESCRIPTOR_SETS] = {
+	{
+		.wLength = MICROSOFT_OS_DESCRIPTOR_SET_HEADER_SIZE,
+		.wDescriptorType = MICROSOFT_OS_SET_HEADER,
+		.dwWindowsVersion = MICROSOFT_WINDOWS_VERSION_WINBLUE,
+		.wTotalLength = 0,
+
+		.vendor_code = 1,
+		.num_config_subset_headers = 1,
+		.config_subset_headers = &microsoft_os_descriptor_config_subset,
+	},
+};
+
+static const microsoft_os_descriptor_set_information microsoft_os_descriptor_set_info = {
+	.dwWindowsVersion = MICROSOFT_WINDOWS_VERSION_WINBLUE,
+	.wMSOSDescriptorSetTotalLength = MICROSOFT_OS_DESCRIPTOR_SET_HEADER_SIZE +
+		MICROSOFT_OS_DESCRIPTOR_CONFIG_SUBSET_HEADER_SIZE + MICROSOFT_OS_DESCRIPTOR_FUNCTION_SUBSET_HEADER_SIZE +
+		MICROSOFT_OS_FEATURE_COMPATIBLE_ID_DESCRIPTOR_SIZE +
+		MICROSOFT_OS_FEATURE_REGISTRY_PROPERTY_DESCRIPTOR_SIZE_BASE +
+		(ARRAY_LENGTH(PROPERTY_DEVICE_INTERFACE_GUID) * 2U) + (ARRAY_LENGTH(VALUE_DFU_INTERFACE_GUID) * 2U),
+	.bMS_VendorCode = 1,
+	.bAltEnumCode = 0,
+};
+
+static const struct {
+	usb_platform_device_capability_descriptor platform_descriptor;
+} __attribute__((packed)) device_capability_descriptors = {
+	.platform_descriptor =
+		{
+			.device_capability_descriptor =
+				{
+					.bLength = USB_DCT_PLATFORM_SIZE + MICROSOFT_OS_DESCRIPTOR_SET_INFORMATION_SIZE,
+					.bDescriptorType = USB_DT_DEVICE_CAPABILITY,
+					.bDevCapabilityType = USB_DCT_PLATFORM,
+				},
+			.bReserved = 0,
+			.PlatformCapabilityUUID = MICROSOFT_OS_DESCRIPTOR_PLATFORM_CAPABILITY_ID,
+
+			.CapabilityData = &microsoft_os_descriptor_set_info,
+		},
+};
+
+static const usb_bos_descriptor bos = {
+	.bLength = USB_DT_BOS_SIZE,
+	.bDescriptorType = USB_DT_BOS,
+	.wTotalLength = 0,
+	.bNumDeviceCaps = 1,
+
+	.device_capability_descriptors = &device_capability_descriptors,
+};
+#endif //DFU_WINUSB_DESCRIPTORS
 
 #define BOARD_IDENT_DFU(BOARD_TYPE) "Black Magic Probe DFU " PLATFORM_IDENT "" FIRMWARE_VERSION
 
@@ -289,7 +401,12 @@ void dfu_init(const usbd_driver *driver)
 {
 	get_dev_unique_id();
 
-	usbdev = usbd_init(driver, &dev_desc, &config, usb_strings, 4, usbd_control_buffer, sizeof(usbd_control_buffer));
+	usbdev = usbd_init(driver, &dev_desc, &config, usb_strings, ARRAY_LENGTH(usb_strings), usbd_control_buffer,
+		sizeof(usbd_control_buffer));
+#ifdef DFU_WINUSB_DESCRIPTORS
+	usbd_register_bos_descriptor(usbdev, &bos);
+	microsoft_os_register_descriptor_sets(usbdev, microsoft_os_descriptor_sets, DESCRIPTOR_SETS);
+#endif //DFU_WINUSB_DESCRIPTORS
 
 	usbd_register_control_callback(usbdev, USB_REQ_TYPE_CLASS | USB_REQ_TYPE_INTERFACE,
 		USB_REQ_TYPE_TYPE | USB_REQ_TYPE_RECIPIENT, usbdfu_control_request);
