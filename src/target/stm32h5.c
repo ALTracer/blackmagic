@@ -168,6 +168,7 @@ const command_s stm32h5_cmd_list[] = {
 
 static bool stm32h5_attach(target_s *target);
 static void stm32h5_detach(target_s *target);
+static void stm32h5_extended_reset(target_s *target);
 static bool stm32h5_enter_flash_mode(target_s *target);
 static bool stm32h5_exit_flash_mode(target_s *target);
 static bool stm32h5_flash_erase(target_flash_s *flash, target_addr_t addr, size_t len);
@@ -251,6 +252,7 @@ bool stm32h5_probe(target_s *const target)
 	target->mass_erase = stm32h5_mass_erase;
 	target->enter_flash_mode = stm32h5_enter_flash_mode;
 	target->exit_flash_mode = stm32h5_exit_flash_mode;
+	target->extended_reset = stm32h5_extended_reset;
 	target_add_commands(target, stm32h5_cmd_list, target->driver);
 
 	uint16_t flash_size_kb = target_mem32_read16(target, STM32H5_FLASH_SIZE);
@@ -352,6 +354,11 @@ static void stm32h5_detach(target_s *target)
 			~(STM32H5_DBGMCU_CONFIG_DBG_STANDBY | STM32H5_DBGMCU_CONFIG_DBG_STOP));
 	/* Now defer to the normal Cortex-M detach routine to complete the detach */
 	cortexm_detach(target);
+}
+
+static void stm32h5_extended_reset(target_s *target)
+{
+	stm32h5_configure_iocomp(target);
 }
 
 static bool stm32h5_flash_wait_complete(target_s *const target, platform_timeout_s *const timeout)
