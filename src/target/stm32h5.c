@@ -140,10 +140,17 @@
 /* Taken from DBGMCU_IDCODE in §59.12.4 of RM0481 rev 2, pg3116 */
 #define ID_STM32H523 0x478U
 
-#define STM32H5_RCC_BASE      0x44020c00U
-#define STM32H5_RCC_CR        (STM32H5_RCC_BASE + 0x00U)
-#define STM32H5_RCC_CR_CSION  (1U << 8U)
-#define STM32H5_RCC_CR_CSIRDY (1U << 9U)
+#define STM32H5_RCC_BASE        0x44020c00U
+#define STM32H5_RCC_CR          (STM32H5_RCC_BASE + 0x00U)
+#define STM32H5_RCC_APB3ENR     (STM32H5_RCC_BASE + 0xa0U)
+#define STM32H5_RCC_CR_CSION    (1U << 8U)
+#define STM32H5_RCC_CR_CSIRDY   (1U << 9U)
+#define STM32H5_RCC_APB3ENR_SBS (1U << 1U)
+
+#define STM32H5_SBS_BASE       0x54000400U
+#define STM32H5_SBS_CCCSR      (STM32H5_SBS_BASE + 0x110U)
+#define STM32H5_SBS_CCCSR_EN1  (1U << 0U)
+#define STM32H5_SBS_CCCSR_RDY1 (1U << 8U)
 
 typedef struct stm32h5_flash {
 	target_flash_s target_flash;
@@ -187,14 +194,30 @@ static void stm32h5_add_flash(
 	flash->bank_and_sector_count = bank_and_sector_count;
 }
 
-static bool stm32h5_configure_rcc(target_s *const target)
+static bool stm32h5_configure_iocomp(target_s *const target)
 {
+	/* Cortex-M DP check_error returns true on errors */
+	bool err = false;
+	/* Read-modify-write of CSION bit (read/poll CSIRDY) */
 	uint32_t rcc_cr = target_mem32_read32(target, STM32H5_RCC_CR);
 	if (!(rcc_cr & STM32H5_RCC_CR_CSIRDY)) {
 		rcc_cr |= STM32H5_RCC_CR_CSION;
-		target_mem32_write32(target, STM32H5_RCC_CR, rcc_cr);
+		err |= target_mem32_write32(target, STM32H5_RCC_CR, rcc_cr);
 	}
-	return true;
+	/* Read-modify-write of Pclk enable bit */
+	uint32_t rcc_apb3enr = target_mem32_read32(target, STM32H5_RCC_APB3ENR);
+	if (!(rcc_apb3enr & STM32H5_RCC_APB3ENR_SBS)) {
+		rcc_apb3enr |= STM32H5_RCC_APB3ENR_SBS;
+		err |= target_mem32_write32(target, STM32H5_RCC_APB3ENR, rcc_apb3enr);
+	}
+	/* Read-modify-write of I/O compensation cell Vddio1 enable bit (read/poll RDY1) */
+	uint32_t sbs_cccsr = target_mem32_read32(target, STM32H5_SBS_CCCSR);
+	if (!(sbs_cccsr & STM32H5_SBS_CCCSR_RDY1)) {
+		sbs_cccsr |= STM32H5_SBS_CCCSR_EN1;
+		err |= target_mem32_write32(target, STM32H5_SBS_CCCSR, sbs_cccsr);
+	}
+	/* Now default GPIOA OSPEEDR=0b11 values at Hclk=HSI64/2 should not cause much ringing at Vdd=3.3v */
+	return !err;
 }
 
 static bool stm32h5_configure_dbgmcu(target_s *const target)
@@ -315,7 +338,7 @@ static bool stm32h5_attach(target_s *const target)
 	 * Try to attach to the part, and then ensure that the WDTs + WFI and WFE
 	 * instructions can't cause problems (this is duplicated as it's undone by detach.)
 	 */
-	return cortexm_attach(target) && stm32h5_configure_dbgmcu(target) && stm32h5_configure_rcc(target);
+	return cortexm_attach(target) && stm32h5_configure_dbgmcu(target) && stm32h5_configure_iocomp(target);
 }
 
 static void stm32h5_detach(target_s *target)
