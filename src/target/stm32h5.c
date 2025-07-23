@@ -140,6 +140,11 @@
 /* Taken from DBGMCU_IDCODE in §59.12.4 of RM0481 rev 2, pg3116 */
 #define ID_STM32H523 0x478U
 
+#define STM32H5_RCC_BASE      0x44020c00U
+#define STM32H5_RCC_CR        (STM32H5_RCC_BASE + 0x00U)
+#define STM32H5_RCC_CR_CSION  (1U << 8U)
+#define STM32H5_RCC_CR_CSIRDY (1U << 9U)
+
 typedef struct stm32h5_flash {
 	target_flash_s target_flash;
 	uint32_t bank_and_sector_count;
@@ -180,6 +185,16 @@ static void stm32h5_add_flash(
 	target_flash->erased = 0xffU;
 	target_add_flash(target, target_flash);
 	flash->bank_and_sector_count = bank_and_sector_count;
+}
+
+static bool stm32h5_configure_rcc(target_s *const target)
+{
+	uint32_t rcc_cr = target_mem32_read32(target, STM32H5_RCC_CR);
+	if (!(rcc_cr & STM32H5_RCC_CR_CSIRDY)) {
+		rcc_cr |= STM32H5_RCC_CR_CSION;
+		target_mem32_write32(target, STM32H5_RCC_CR, rcc_cr);
+	}
+	return true;
 }
 
 static bool stm32h5_configure_dbgmcu(target_s *const target)
@@ -300,7 +315,7 @@ static bool stm32h5_attach(target_s *const target)
 	 * Try to attach to the part, and then ensure that the WDTs + WFI and WFE
 	 * instructions can't cause problems (this is duplicated as it's undone by detach.)
 	 */
-	return cortexm_attach(target) && stm32h5_configure_dbgmcu(target);
+	return cortexm_attach(target) && stm32h5_configure_dbgmcu(target) && stm32h5_configure_rcc(target);
 }
 
 static void stm32h5_detach(target_s *target)
