@@ -63,7 +63,7 @@ void platform_init(void)
 	/* Unmap JTAG Pins so we can reuse as GPIO */
 	data = AFIO_MAPR;
 	data &= ~AFIO_MAPR_SWJ_MASK;
-	data |= AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_OFF;
+	data |= AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_ON;
 	AFIO_MAPR = data;
 	/* Setup JTAG GPIO ports */
 	gpio_set_mode(TMS_PORT, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_INPUT_FLOAT, TMS_PIN);

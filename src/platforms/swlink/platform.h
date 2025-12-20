@@ -29,6 +29,7 @@
 #include "timing_stm32.h"
 
 #define PLATFORM_HAS_TRACESWO
+#define PLATFORM_HAS_RVSWD
 
 #if ENABLE_DEBUG == 1
 #define PLATFORM_HAS_DEBUG
@@ -43,11 +44,11 @@ extern bool debug_bmp;
 #define TDI_PORT  GPIOA
 #define TDO_PORT  GPIOB
 #define TRST_PORT GPIOB
-#define TMS_PIN   GPIO13
-#define TCK_PIN   GPIO14
+#define TMS_PIN   GPIO6
+#define TCK_PIN   GPIO5
 #define TDI_PIN   GPIO15
 #define TDO_PIN   GPIO3
-#define TRST_PIN  GPIO4
+#define TRST_PIN  GPIO0
 
 #define SWDIO_PORT TMS_PORT
 #define SWCLK_PORT TCK_PORT
@@ -61,8 +62,8 @@ extern bool debug_bmp;
 #define LED_PORT_UART GPIOC
 #define LED_UART      GPIO14
 
-#define SWD_CR      GPIO_CRH(SWDIO_PORT)
-#define SWD_CR_MULT (1U << ((13U - 8U) << 2U))
+#define SWD_CR      GPIO_CRL(SWDIO_PORT)
+#define SWD_CR_MULT (1U << ((6U) << 2U))
 
 #define TMS_SET_MODE() gpio_set_mode(TMS_PORT, GPIO_MODE_OUTPUT_2_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, TMS_PIN);
 #define SWDIO_MODE_FLOAT()           \
