@@ -85,6 +85,7 @@ if is_firmware_build
 		'gd32': 'GigaDevice parts',
 		'hc32': 'HC32 parts',
 		'lpc': 'LPC series parts',
+		'mdr32vf': 'Milandr parts',
 		'mm32': 'MindMotion parts',
 		'nrf': 'nRF series parts',
 		'nxp': 'Kinetis series parts',
@@ -343,6 +344,12 @@ target_gd32 = declare_dependency(
 	dependencies: [target_stm32f1, target_stm32f4],
 	compile_args: ['-DCONFIG_GD32=1'],
 )
+target_mdr32vf = declare_dependency(
+	sources: files(
+		'mdr32vf.c',
+	),
+	dependencies: target_riscv32,
+)
 
 target_mm32 = declare_dependency(
 	dependencies: target_stm32f1,
@@ -440,6 +447,7 @@ libbmd_target_deps = [
 	target_gd32,
 	target_hc32,
 	target_lpc,
+	target_mdr32vf,
 	target_mm32,
 	target_nrf,
 	target_nxp,
