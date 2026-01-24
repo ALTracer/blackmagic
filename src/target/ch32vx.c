@@ -104,6 +104,7 @@ bool ch32vx_probe(target_s *const target)
 	const uint32_t idcode = target_mem32_read32(target, CH32VX_IDCODE);
 
 	switch (idcode & CH32VX_IDCODE_MASK) {
+	case 0x20310500U: /* CH32V203C8T6 */
 	case 0x30330504U: /* CH32V303CBT6 */
 	case 0x30320504U: /* CH32V303RBT6 */
 	case 0x30310504U: /* CH32V303RCT6 */
@@ -123,6 +124,9 @@ bool ch32vx_probe(target_s *const target)
 
 	const uint16_t family = (idcode & CH32VX_IDCODE_FAMILY_MASK) >> CH32VX_IDCODE_FAMILY_OFFSET;
 	switch (family) {
+	case CH32V203_IDCODE_FAMILY:
+		target->driver = "CH32V203";
+		break;
 	case CH32V303_IDCODE_FAMILY:
 		target->driver = "CH32V303";
 		break;
