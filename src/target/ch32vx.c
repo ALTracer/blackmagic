@@ -164,7 +164,7 @@ static bool ch32vx_uid_cmd(target_s *const target, const int argc, const char **
 
 	tc_printf(target, "Unique id: 0x");
 	for (size_t i = 0U; i < sizeof(uid); i++)
-		tc_printf(target, "%02" PRIx8, uid[i]);
+		tc_printf(target, "%02x", uid[i]);
 	tc_printf(target, "\n");
 
 	return true;
