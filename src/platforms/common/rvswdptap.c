@@ -35,26 +35,42 @@ static bool rv_dm_reset(void);
 static bool rv_start_frame(uint32_t adr, bool wr);
 static bool rv_end_frame(uint32_t *status);
 
-#define CLK_OFF()                                                                        \
-	{                                                                                    \
-		gpio_clear(SWCLK_PORT, SWCLK_PIN);                                               \
-		for (volatile uint32_t counter = target_clk_divider + 1; counter > 0; --counter) \
-			__asm__("nop");                                                              \
+/* Busy-looping delay for GPIO bitbanging operations. SUBS+BNE.N take 4 cycles. */
+static inline void platform_delay_busy(const uint32_t loops) __attribute__((always_inline));
+
+void platform_delay_busy(const uint32_t loops)
+{
+#if 1
+	register uint32_t i = loops;
+	do {
+		__asm__("");
+	} while (--i > 0U);
+#else
+	for (register uint32_t i = loops; --i > 0U;)
+		__asm__("");
+#endif
+}
+
+#define CLK_OFF()                                    \
+	{                                                \
+		gpio_clear(SWCLK_PORT, SWCLK_PIN);           \
+		platform_delay_busy(target_clk_divider + 2); \
 	}
-#define CLK_ON()                                                                         \
-	{                                                                                    \
-		gpio_set(SWCLK_PORT, SWCLK_PIN);                                                 \
-		for (volatile uint32_t counter = target_clk_divider + 1; counter > 0; --counter) \
-			__asm__("nop");                                                              \
+#define CLK_ON()                                     \
+	{                                                \
+		gpio_set(SWCLK_PORT, SWCLK_PIN);             \
+		platform_delay_busy(target_clk_divider + 2); \
 	}
 
-#define IO_OFF()                           \
-	{                                      \
-		gpio_clear(SWDIO_PORT, SWDIO_PIN); \
+#define IO_OFF()                                     \
+	{                                                \
+		gpio_clear(SWDIO_PORT, SWDIO_PIN);           \
+		platform_delay_busy(target_clk_divider + 2); \
 	}
-#define IO_ON()                          \
-	{                                    \
-		gpio_set(SWDIO_PORT, SWDIO_PIN); \
+#define IO_ON()                                      \
+	{                                                \
+		gpio_set(SWDIO_PORT, SWDIO_PIN);             \
+		platform_delay_busy(target_clk_divider + 2); \
 	}
 
 static void rv_write_nbits(int n, uint32_t value)
