@@ -240,7 +240,6 @@ static bool ch32f1_flash_erase(target_flash_s *const flash, const target_addr_t 
 {
 	uint32_t status;
 	target_s *target = flash->t;
-	DEBUG_INFO("CH32: flash erase \n");
 
 	if (!ch32f1_flash_unlock(target)) {
 		DEBUG_ERROR("CH32: Unlock failed\n");
@@ -327,7 +326,6 @@ static bool ch32f1_flash_write(
 	target_addr_t org_dest = dest;
 	const uint8_t *org_src = (const uint8_t *)src;
 #endif
-	DEBUG_INFO("CH32: flash write 0x%" PRIx32 " ,size=%" PRIu32 "\n", dest, (uint32_t)len);
 
 	for (size_t offset = 0U; offset < len; offset += 128U) {
 		if (!ch32f1_flash_unlock(target)) {
