@@ -149,12 +149,18 @@ static bool ch32f1_flash_lock(target_s *const target)
 static bool ch32f1_has_fast_unlock(target_s *const target)
 {
 	DEBUG_INFO("CH32: has fast unlock?\n");
+	uint32_t flash_ctrl = target_mem32_read32(target, CH32F1_FLASH_CTRL);
+	if (flash_ctrl & CH32F1_FLASH_CTRL_FLOCK) {
+		DEBUG_INFO("CH32: yes, FLOCK defaults to 1\n");
+		return true;
+	}
 	// reset fast unlock
-	ch32f1_flash_ctrl_set(target, CH32F1_FLASH_CTRL_FLOCK);
+	target_mem32_write32(target, CH32F1_FLASH_CTRL, flash_ctrl | CH32F1_FLASH_CTRL_FLOCK);
 	platform_delay(1); // The flash controller is timing sensitive
-	if (!(target_mem32_read32(target, CH32F1_FLASH_CTRL) & CH32F1_FLASH_CTRL_FLOCK)) {
-		DEBUG_INFO("CH32: check for fast unlock failed\n");
-		return false;
+	flash_ctrl = target_mem32_read32(target, CH32F1_FLASH_CTRL);
+	if (!(flash_ctrl & CH32F1_FLASH_CTRL_FLOCK)) {
+		DEBUG_INFO("CH32: resetting FLOCK failed\n");
+		//return false;
 	}
 	// send unlock sequence
 	target_mem32_write32(target, CH32F1_FLASH_KEY, CH32F1_FLASH_KEY1);
@@ -164,7 +170,14 @@ static bool ch32f1_has_fast_unlock(target_s *const target)
 	target_mem32_write32(target, CH32F1_FLASH_MODEKEYR, CH32F1_FLASH_KEY1);
 	target_mem32_write32(target, CH32F1_FLASH_MODEKEYR, CH32F1_FLASH_KEY2);
 	platform_delay(1); // The flash controller is timing sensitive
-	return !(target_mem32_read32(target, CH32F1_FLASH_CTRL) & CH32F1_FLASH_CTRL_FLOCK);
+	flash_ctrl = target_mem32_read32(target, CH32F1_FLASH_CTRL);
+	if (flash_ctrl & CH32F1_FLASH_CTRL_FLOCK) {
+		DEBUG_INFO("CH32: initial fast unlock failed, FLOCK sticky\n");
+		return false;
+	} else {
+		DEBUG_INFO("CH32: yes, fast programming unlocked\n");
+		return true;
+	}
 }
 
 /*
