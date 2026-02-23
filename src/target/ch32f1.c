@@ -74,6 +74,8 @@
 
 static bool ch32f1_flash_erase(target_flash_s *flash, target_addr_t addr, size_t len);
 static bool ch32f1_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len);
+static bool ch32f1_flash_prepare(target_flash_s *flash);
+static bool ch32f1_flash_done(target_flash_s *flash);
 
 /* "fast" Flash driver for CH32F10x chips */
 static void ch32f1_add_flash(target_s *target, uint32_t addr, size_t length, size_t erasesize)
@@ -87,8 +89,10 @@ static void ch32f1_add_flash(target_s *target, uint32_t addr, size_t length, siz
 	flash->start = addr;
 	flash->length = length;
 	flash->blocksize = erasesize;
+	flash->prepare = ch32f1_flash_prepare;
 	flash->erase = ch32f1_flash_erase;
 	flash->write = ch32f1_flash_write;
+	flash->done = ch32f1_flash_done;
 	flash->writesize = erasesize;
 	flash->erased = 0xffU;
 	target_add_flash(target, flash);
@@ -237,16 +241,24 @@ static void ch32f1_write_magic(target_s *const target, const target_addr32_t add
 	target_mem32_write32(target, CH32F1_FLASH_MAGIC, magic_value);
 }
 
+static bool ch32f1_flash_prepare(target_flash_s *const flash)
+{
+	target_s *target = flash->t;
+	return ch32f1_flash_unlock(target);
+}
+
+static bool ch32f1_flash_done(target_flash_s *const flash)
+{
+	target_s *target = flash->t;
+	return ch32f1_flash_lock(target);
+}
+
 /* Fast erase of CH32 devices */
 static bool ch32f1_flash_erase(target_flash_s *const flash, const target_addr_t addr, const size_t len)
 {
 	uint32_t status;
 	target_s *target = flash->t;
 
-	if (!ch32f1_flash_unlock(target)) {
-		DEBUG_ERROR("CH32: Unlock failed\n");
-		return false;
-	}
 	// Fast Erase 128 bytes pages (ch32 mode)
 	for (size_t offset = 0; offset < len; offset += 128U) {
 		ch32f1_flash_ctrl_set(target, CH32F1_FLASH_CTRL_FTER); // CH32 PAGE_ER
@@ -260,7 +272,6 @@ static bool ch32f1_flash_erase(target_flash_s *const flash, const target_addr_t 
 		ch32f1_write_magic(target, addr + offset);
 	}
 	status = target_mem32_read32(target, CH32F1_FLASH_STATUS);
-	ch32f1_flash_lock(target);
 	if (status & CH32F1_FLASH_STATUS_ERROR_MASK)
 		DEBUG_ERROR("ch32f1 flash erase error 0x%" PRIx32 "\n", status);
 	return !(status & CH32F1_FLASH_STATUS_ERROR_MASK);
@@ -330,10 +341,6 @@ static bool ch32f1_flash_write(
 #endif
 
 	for (size_t offset = 0U; offset < len; offset += 128U) {
-		if (!ch32f1_flash_unlock(target)) {
-			DEBUG_ERROR("ch32f1 cannot fast unlock\n");
-			return false;
-		}
 		ch32f1_flash_busy_wait(target);
 
 		// Buffer reset...
@@ -359,7 +366,6 @@ static bool ch32f1_flash_write(
 		ch32f1_write_magic(target, dest + offset);
 
 		status = target_mem32_read32(target, CH32F1_FLASH_STATUS); // 13
-		ch32f1_flash_lock(target);
 		if (status & CH32F1_FLASH_STATUS_ERROR_MASK) {
 			DEBUG_ERROR("ch32f1 flash write error 0x%" PRIx32 "\n", status);
 			return false;
