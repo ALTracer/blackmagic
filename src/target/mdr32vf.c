@@ -85,7 +85,7 @@ static void mdr32vf_add_flash(
 	flash->start = addr;
 	flash->length = length;
 	flash->blocksize = erasesize;
-	flash->writesize = 1024U;
+	flash->writesize = 512U; // 8 rows per sector; will have same XADR
 	flash->erased = 0xff;
 	flash->prepare = mdr32vf_flash_prepare;
 	flash->erase = mdr32vf_flash_erase;
@@ -174,13 +174,52 @@ static bool mdr32vf_flash_erase(target_flash_s *flash, const target_addr_t addr,
 	return true;
 }
 
-static bool mdr32vf_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len)
+static bool mdr32vf_flash_write(target_flash_s *flash, const target_addr_t dest, const void *src, const size_t len)
 {
-	(void)flash;
-	(void)dest;
-	(void)src;
-	(void)len;
-	return false;
+	target_s *target = flash->t;
+	/* Reconnect flash to the register interface */
+	uint32_t flash_cmd = target_mem32_read32(target, FLASH_CMD);
+	const uint32_t flash_delay = flash_cmd & FLASH_DELAY_MASK;
+	flash_cmd = FLASH_CMD_CON | FLASH_CMD_TMR | flash_delay;
+	target_mem32_write32(target, FLASH_CMD, flash_cmd);
+
+	/* Select sector */
+	target_mem32_write32(target, FLASH_ADR, dest);
+	const unsigned int time_write_start = platform_time_ms();
+	/* Warning: T_HV < 16ms for the same X-enable row of 512 bytes */
+	flash_cmd |= FLASH_CMD_XE | FLASH_CMD_PROG;
+	target_mem32_write32(target, FLASH_CMD, flash_cmd);
+	/* Delay 5us */
+	flash_cmd |= FLASH_CMD_NVSTR;
+	target_mem32_write32(target, FLASH_CMD, flash_cmd);
+
+	const uint8_t *src8 = src;
+	for (uint32_t offset = 0; offset < len; offset += 4) {
+		/* Read unaligned source buffer */
+		uint32_t value = 0;
+		memcpy(&value, src8 + offset, sizeof(value));
+		/* Submit line */
+		target_mem32_write32(target, FLASH_DI, value);
+		target_mem32_write32(target, FLASH_ADR, dest + offset);
+		/* Delay 10us between NVSTR and Y-enable */
+		flash_cmd |= FLASH_CMD_YE;
+		target_mem32_write32(target, FLASH_CMD, flash_cmd);
+		/* Delay 40us Tprog 32-bit */
+		flash_cmd &= ~FLASH_CMD_YE;
+		target_mem32_write32(target, FLASH_CMD, flash_cmd);
+	}
+	flash_cmd &= ~FLASH_CMD_PROG;
+	target_mem32_write32(target, FLASH_CMD, flash_cmd);
+	/* Delay 5us */
+	flash_cmd &= ~(FLASH_CMD_XE | FLASH_CMD_NVSTR);
+	target_mem32_write32(target, FLASH_CMD, flash_cmd);
+	/* Delay 10us */
+	const unsigned int time_write_complete = platform_time_ms();
+	DEBUG_INFO("%s: applied HV for %u ms, should be <16 ms\n", __func__, time_write_complete - time_write_start);
+
+	/* Reconnect flash to instruction bus */
+	target_mem32_write32(target, FLASH_CMD, flash_delay);
+	return true;
 }
 
 static bool mdr32vf_mass_erase(target_flash_s *flash, platform_timeout_s *print_progress)
