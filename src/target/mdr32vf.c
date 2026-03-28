@@ -38,6 +38,12 @@
 
 #define MDR32F02FI_FLASH_BASE 0x10000000U
 
+#define MDR32VF_RSTCLK_BASE      0x40020000U
+#define MDR32VF_RSTCLK_PER2CLOCK (MDR32VF_RSTCLK_BASE + 0x1cU)
+
+#define MDR32VF_RSTCLK_PER2CLOCK_FLASH  (1 << 3)
+#define MDR32VF_RSTCLK_PER2CLOCK_RSTCLK (1 << 4)
+
 static bool mdr32vf_flash_prepare(target_flash_s *flash);
 static bool mdr32vf_flash_erase(target_flash_s *flash, target_addr_t addr, size_t len);
 static bool mdr32vf_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len);
@@ -90,6 +96,16 @@ static bool mdr32vf_flash_unlock(target_s *const target)
 static bool mdr32vf_flash_prepare(target_flash_s *const target_flash)
 {
 	target_s *target = target_flash->t;
+	uint32_t per2_clock = target_mem32_read32(target, MDR32VF_RSTCLK_PER2CLOCK);
+	if ((per2_clock & MDR32VF_RSTCLK_PER2CLOCK_RSTCLK) == 0) {
+		DEBUG_ERROR("%s: Peripheral clock for RST_CLK is missing. Please reset.\n", __func__);
+		return false;
+	}
+	/* Enable peripheral clock to FLASH registers */
+	if ((per2_clock & MDR32VF_RSTCLK_PER2CLOCK_FLASH) == 0) {
+		per2_clock |= MDR32VF_RSTCLK_PER2CLOCK_FLASH;
+		target_mem32_write32(target, MDR32VF_RSTCLK_PER2CLOCK, per2_clock);
+	}
 	return mdr32vf_flash_unlock(target);
 }
 
