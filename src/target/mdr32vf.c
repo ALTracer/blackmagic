@@ -44,6 +44,29 @@
 #define MDR32VF_RSTCLK_PER2CLOCK_FLASH  (1 << 3)
 #define MDR32VF_RSTCLK_PER2CLOCK_RSTCLK (1 << 4)
 
+#define FLASH_REG_BASE 0x40018000U
+#define FLASH_CMD      (FLASH_REG_BASE + 0x00U)
+#define FLASH_ADR      (FLASH_REG_BASE + 0x04U)
+#define FLASH_DI       (FLASH_REG_BASE + 0x08U)
+#define FLASH_DO       (FLASH_REG_BASE + 0x0cU)
+#define FLASH_KEY      (FLASH_REG_BASE + 0x10U)
+
+#define MDR32VF_FLASH_KEY 0x8aaa5551U
+
+#define FLASH_CMD_TMR    (1 << 14) /* Test Mode Reset, always write as one */
+#define FLASH_CMD_NVSTR  (1 << 13)
+#define FLASH_CMD_PROG   (1 << 12)
+#define FLASH_CMD_MAS1   (1 << 11)
+#define FLASH_CMD_ERASE  (1 << 10)
+#define FLASH_CMD_IFREN  (1 << 9)
+#define FLASH_CMD_SE     (1 << 8)
+#define FLASH_CMD_YE     (1 << 7)
+#define FLASH_CMD_XE     (1 << 6)
+#define FLASH_DELAY_MASK (7 << 3)
+#define FLASH_CMD_CON    (1 << 0) /* Detach from instruction bus */
+//#define FLASH_CMD_RD     (1 << 2)
+//#define FLASH_CMD_WR     (1 << 1)
+
 static bool mdr32vf_flash_prepare(target_flash_s *flash);
 static bool mdr32vf_flash_erase(target_flash_s *flash, target_addr_t addr, size_t len);
 static bool mdr32vf_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len);
@@ -89,8 +112,13 @@ bool mdr32f02fi_probe(target_s *const target)
 
 static bool mdr32vf_flash_unlock(target_s *const target)
 {
-	(void)target;
-	return false;
+	/* Memory layer returns true for errors */
+	bool mem_error = target_mem32_write32(target, FLASH_KEY, MDR32VF_FLASH_KEY);
+	if (mem_error) {
+		DEBUG_ERROR("%s failed\n", __func__);
+	}
+	/* Flash layer returns true for success */
+	return !mem_error;
 }
 
 static bool mdr32vf_flash_prepare(target_flash_s *const target_flash)
@@ -111,16 +139,39 @@ static bool mdr32vf_flash_prepare(target_flash_s *const target_flash)
 
 static bool mdr32vf_flash_done(target_flash_s *const target_flash)
 {
-	(void)target_flash;
-	return false;
+	target_s *target = target_flash->t;
+	const uint32_t mem_error = target_mem32_write32(target, FLASH_KEY, 0);
+	return !mem_error;
 }
 
-static bool mdr32vf_flash_erase(target_flash_s *flash, target_addr_t addr, size_t len)
+static bool mdr32vf_flash_erase(target_flash_s *flash, const target_addr_t addr, const size_t len)
 {
-	(void)flash;
-	(void)addr;
-	(void)len;
-	return false;
+	target_s *target = flash->t;
+	/* Reconnect flash to the register interface */
+	uint32_t flash_cmd = target_mem32_read32(target, FLASH_CMD);
+	const uint32_t flash_delay = flash_cmd & FLASH_DELAY_MASK;
+	flash_cmd = FLASH_CMD_CON | FLASH_CMD_TMR | flash_delay;
+	target_mem32_write32(target, FLASH_CMD, flash_cmd);
+
+	for (uint32_t offset = addr; offset < addr + len; offset += flash->blocksize) {
+		target_mem32_write32(target, FLASH_ADR, offset);
+		flash_cmd |= FLASH_CMD_XE | FLASH_CMD_ERASE;
+		target_mem32_write32(target, FLASH_CMD, flash_cmd);
+		/* Delay 5us */
+		flash_cmd |= FLASH_CMD_NVSTR;
+		target_mem32_write32(target, FLASH_CMD, flash_cmd);
+		platform_delay(40); /* Delay 40ms for sector erase, polling not possible */
+		flash_cmd &= ~FLASH_CMD_ERASE;
+		target_mem32_write32(target, FLASH_CMD, flash_cmd);
+		/* Delay 5us */
+		flash_cmd &= ~(FLASH_CMD_XE | FLASH_CMD_NVSTR);
+		target_mem32_write32(target, FLASH_CMD, flash_cmd);
+		/* Delay 10us */
+	}
+
+	/* Reconnect flash to instruction bus */
+	target_mem32_write32(target, FLASH_CMD, flash_delay);
+	return true;
 }
 
 static bool mdr32vf_flash_write(target_flash_s *flash, target_addr_t dest, const void *src, size_t len)
