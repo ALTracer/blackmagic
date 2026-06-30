@@ -522,6 +522,21 @@ int cl_execute(bmda_cli_options_s *opt)
 		}
 	}
 
+	/* List each defined ROM region */
+	size_t rom_regions = 0U;
+	for (target_rom_s *rom = target->rom; rom; rom = rom->next)
+		++rom_regions;
+
+	for (size_t region = 0U; region < rom_regions; ++region) {
+		target_rom_s *rom = target->rom;
+		for (size_t i = rom_regions - 1U; rom; rom = rom->next, --i) {
+			if (region == i) {
+				DEBUG_INFO("ROM   Start: 0x%08" PRIx32 " length = 0x%zx\n", rom->start, rom->length);
+				break;
+			}
+		}
+	}
+
 	/* Always scan memory map to find lowest flash */
 	/* List each defined Flash region */
 	uint32_t lowest_flash_start = 0xffffffffU;
