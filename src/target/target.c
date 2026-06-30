@@ -107,6 +107,15 @@ void target_ram_map_free(target_s *target)
 	}
 }
 
+void target_rom_map_free(target_s *target)
+{
+	while (target->rom) {
+		target_rom_s *next = target->rom->next;
+		free(target->rom);
+		target->rom = next;
+	}
+}
+
 void target_flash_map_free(target_s *target)
 {
 	while (target->flash) {
@@ -121,6 +130,7 @@ void target_flash_map_free(target_s *target)
 void target_mem_map_free(target_s *target)
 {
 	target_ram_map_free(target);
+	target_rom_map_free(target);
 	target_flash_map_free(target);
 }
 
@@ -231,6 +241,25 @@ void target_add_ram64(target_s *const target, const target_addr64_t start, const
 	target->ram = ram;
 }
 
+void target_add_rom32(target_s *const target, const target_addr32_t start, const uint32_t len)
+{
+	target_add_rom64(target, start, len);
+}
+
+void target_add_rom64(target_s *const target, const target_addr64_t start, const uint64_t len)
+{
+	target_rom_s *rom = malloc(sizeof(*rom));
+	if (!rom) { /* malloc failed: heap exhaustion */
+		DEBUG_ERROR("malloc: failed in %s\n", __func__);
+		return;
+	}
+
+	rom->start = start;
+	rom->length = len;
+	rom->next = target->rom;
+	target->rom = rom;
+}
+
 void target_add_flash(target_s *target, target_flash_s *flash)
 {
 	if (flash->writesize == 0)
@@ -260,6 +289,12 @@ static ssize_t mem_map_ram(char *const buffer, const size_t length, const target
 {
 	return snprintf(buffer, length, "<memory type=\"ram\" start=\"0x%08" PRIx32 "\" length=\"0x%" PRIx32 "\"/>",
 		ram->start, (uint32_t)ram->length);
+}
+
+static ssize_t mem_map_rom(char *const buffer, const size_t length, const target_rom_s *const rom)
+{
+	return snprintf(buffer, length, "<memory type=\"rom\" start=\"0x%08" PRIx32 "\" length=\"0x%" PRIx32 "\"/>",
+		rom->start, (uint32_t)rom->length);
 }
 
 static ssize_t mem_map_flash(char *const buffer, const size_t length, const target_flash_s *const flash)
@@ -304,6 +339,17 @@ size_t target_mem_map_chunk(
 			}
 			/* Otherwise see how long it is and skip past it */
 			offset += mem_map_flash(NULL, 0U, flash);
+		}
+		/* Now ROM, if any */
+		for (target_rom_s *rom = target->rom; rom; rom = rom->next) {
+			/* If this is the entry we're at, format it out and return */
+			if (offset == target->map_transfer_offset) {
+				size_t entry_length = mem_map_rom(buffer, length, rom);
+				target->map_transfer_offset += entry_length;
+				return entry_length;
+			}
+			/* Otherwise see how long it is and skip past it */
+			offset += mem_map_rom(NULL, 0U, rom);
 		}
 		/* If we've processed all that, then it's an end of map request */
 		memcpy(buffer, map_end, ARRAY_LENGTH(map_end));

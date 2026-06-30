@@ -49,6 +49,15 @@ struct target_ram {
 	target_ram_s *next;
 };
 
+typedef struct target_rom target_rom_s;
+
+struct target_rom {
+	/* XXX: This needs adjusting for 64-bit operations */
+	target_addr32_t start;
+	size_t length;
+	target_rom_s *next;
+};
+
 typedef struct target_flash target_flash_s;
 
 typedef bool (*flash_prepare_func)(target_flash_s *flash);
@@ -176,6 +185,7 @@ struct target {
 	bool flash_mode;
 
 	target_ram_s *ram;
+	target_rom_s *rom;
 	target_flash_s *flash;
 
 	uint32_t map_transfer_offset;
@@ -214,6 +224,8 @@ void target_mem_map_free(target_s *target);
 void target_add_commands(target_s *target, const command_s *cmds, const char *name);
 void target_add_ram32(target_s *target, target_addr32_t start, uint32_t len);
 void target_add_ram64(target_s *target, target_addr64_t start, uint64_t len);
+void target_add_rom32(target_s *target, target_addr32_t start, uint32_t len);
+void target_add_rom64(target_s *target, target_addr64_t start, uint64_t len);
 void target_add_flash(target_s *target, target_flash_s *flash);
 
 /* No-op stub for enter flash mode */
