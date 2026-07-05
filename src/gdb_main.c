@@ -571,7 +571,7 @@ static void exec_q_c(const char *packet, const size_t length)
 {
 	(void)packet;
 	(void)length;
-	gdb_put_packet_str("QCp1.1");
+	gdb_putpacket_str_f("QCp%u.1", cur_target->number);
 }
 
 /*
@@ -585,7 +585,7 @@ static void exec_q_thread_info(const char *packet, const size_t length)
 {
 	(void)length;
 	if (packet[-11] == 'f' && cur_target)
-		gdb_put_packet_str("mp1.1");
+		gdb_putpacket_str_f("mp%u.1", cur_target->number);
 	else
 		gdb_put_packet_str("l");
 }
@@ -679,6 +679,7 @@ static void exec_v_attach(const char *const packet, const size_t length)
 		cur_target = target_attach_n(addr, &gdb_controller);
 		if (cur_target) {
 			morse(NULL, false);
+			cur_target->number = addr;
 			/*
 			 * We don't actually support threads, but GDB 11 and 12 can't work without
 			 * us saying we attached to thread 1.. see the following for the low-down of this:
@@ -688,7 +689,7 @@ static void exec_v_attach(const char *const packet, const size_t length)
 			 * https://sourceware.org/pipermail/gdb-patches/2022-April/188058.html
 			 * https://sourceware.org/pipermail/gdb-patches/2022-July/190869.html
 			 */
-			gdb_putpacket_str_f("T%02Xthread:p1.1;", GDB_SIGTRAP);
+			gdb_putpacket_str_f("T%02Xthread:p%u.1;", GDB_SIGTRAP, cur_target->number);
 		} else
 			gdb_put_packet_error(1U);
 
@@ -981,16 +982,16 @@ void gdb_poll_target(void)
 		morse("TARGET LOST.", true);
 		break;
 	case TARGET_HALT_REQUEST:
-		gdb_putpacket_str_f("T%02Xthread:p1.1;", GDB_SIGINT);
+		gdb_putpacket_str_f("T%02Xthread:p%u.1;", GDB_SIGINT, cur_target->number);
 		break;
 	case TARGET_HALT_WATCHPOINT:
 		gdb_putpacket_str_f(
 			"T%02Xwatch:%0" PRIX32 "%08" PRIX32 ";", GDB_SIGTRAP, (uint32_t)(watch >> 32U), (uint32_t)watch);
 		break;
 	case TARGET_HALT_FAULT:
-		gdb_putpacket_str_f("T%02Xthread:p1.1;", GDB_SIGSEGV);
+		gdb_putpacket_str_f("T%02Xthread:p%u.1;", GDB_SIGSEGV, cur_target->number);
 		break;
 	default:
-		gdb_putpacket_str_f("T%02Xthread:p1.1;", GDB_SIGTRAP);
+		gdb_putpacket_str_f("T%02Xthread:p%u.1;", GDB_SIGTRAP, cur_target->number);
 	}
 }

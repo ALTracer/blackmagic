@@ -199,6 +199,8 @@ struct target {
 	 * fallback to AP partno
 	 */
 	uint16_t part_id;
+	/* Which of available targets are we attached to */
+	uint16_t number;
 };
 
 void target_print_progress(platform_timeout_s *timeout);
