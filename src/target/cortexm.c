@@ -494,6 +494,11 @@ bool cortexm_probe(adiv5_access_port_s *ap)
 			PROBE(gd32f1_probe);                /* GD32E23x uses GD32F1 peripherals */
 		}
 		break;
+	case JEP106_MANUFACTURER_FREMONT:
+		if (target->part_id == 0x410U) { /* Cortex-M3 ROM */
+			PROBE(stm32f1_probe);        /* FT32F103x uses STM32F1x peripherals (clone) */
+		}
+		break;
 	case ASCII_CODE_FLAG:
 		/*
 		 * these devices enumerate an AP with an empty ascii code,
