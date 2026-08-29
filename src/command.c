@@ -50,6 +50,13 @@
 #include "swo.h"
 #include "usb.h"
 #endif
+/*
+ * Define a default value for this macro to preserve existing functionality
+ * for platforms that do not presently set it.
+ */
+#ifndef PLATFORM_HAS_SWO_UART
+#define PLATFORM_HAS_SWO_UART true
+#endif
 
 typedef struct scan_command {
 	bool (*scan)(void);
@@ -824,8 +831,12 @@ static bool cmd_swo_enable(int argc, const char **argv)
 		const size_t arg_length = strlen(argv[decode_arg]);
 		if (!strncmp(argv[decode_arg], "manchester", arg_length))
 			capture_mode = swo_manchester;
-		if (!strncmp(argv[decode_arg], "uart", arg_length))
-			capture_mode = swo_nrz_uart;
+		if (!strncmp(argv[decode_arg], "uart", arg_length)) {
+			if (PLATFORM_HAS_SWO_UART)
+				capture_mode = swo_nrz_uart;
+			else
+				gdb_out("UART SWO not supported on this platform\n");
+		}
 	}
 	/* If a mode was given, make sure the rest of the parser skips the mode verb */
 	if (capture_mode != swo_none)

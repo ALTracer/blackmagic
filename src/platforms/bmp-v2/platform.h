@@ -47,6 +47,12 @@ extern int hwversion;
  * version is smaller than ver it outputs opt1, otherwise opt2
  */
 #define HW_SWITCH(ver, opt1, opt2) (hwversion < (ver) ? (opt1) : (opt2))
+/*
+ * Hardware versions earlier than v6 do not support UART encoded SWO. This
+ * macro is used to check for UART support and inform the user
+ * the platform doesn't support it.
+ */
+#define PLATFORM_HAS_SWO_UART (hwversion >= 6)
 
 /*
  * Important pin mappings for native implementation:
