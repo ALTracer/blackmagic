@@ -45,7 +45,7 @@
 #include "hex_utils.h"
 #endif
 
-#ifdef PLATFORM_HAS_TRACESWO
+#ifdef PLATFORM_HAS_SWO
 #include "serialno.h"
 #include "swo.h"
 #include "usb.h"
@@ -89,7 +89,7 @@ static bool cmd_target_battery(target_s *t, int argc, const char **argv);
 #ifdef PLATFORM_HAS_WIFI
 static bool cmd_wifi(target_s *t, int argc, const char **argv);
 #endif
-#ifdef PLATFORM_HAS_TRACESWO
+#ifdef PLATFORM_HAS_SWO
 static bool cmd_swo(target_s *target, int argc, const char **argv);
 #endif
 static bool cmd_heapinfo(target_s *target, int argc, const char **argv);
@@ -141,7 +141,7 @@ static const command_s cmd_list[] = {
 		"MINMS "
 		"MAXERR]]"},
 #endif
-#ifdef PLATFORM_HAS_TRACESWO
+#ifdef PLATFORM_HAS_SWO
 #if SWO_ENCODING == 1
 	{"swo", cmd_swo, "Start SWO capture, Manchester mode: <enable|disable> [decode [CHANNEL_NR ...]]"},
 #elif SWO_ENCODING == 2
@@ -806,7 +806,7 @@ static bool cmd_rtt(target_s *target, int argc, const char **argv)
 }
 #endif
 
-#ifdef PLATFORM_HAS_TRACESWO
+#ifdef PLATFORM_HAS_SWO
 static bool cmd_swo_enable(int argc, const char **argv)
 {
 	/* Set up which mode we're going to default to */
@@ -897,7 +897,7 @@ static bool cmd_swo(target_s *target, int argc, const char **argv)
 	(void)target;
 	bool enable_swo = false;
 	if (argc >= 2 && !parse_enable_or_disable(argv[1], &enable_swo)) {
-		gdb_out("Usage: traceswo <enable|disable> [2000000] [decode [0 1 3 31]]\n");
+		gdb_out("Usage: swo <enable|disable> [2000000] [decode [0 1 3 31]]\n");
 		return false;
 	}
 

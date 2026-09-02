@@ -40,7 +40,7 @@
 #include "timing.h"
 #include "timing_stm32.h"
 
-#define PLATFORM_HAS_TRACESWO
+#define PLATFORM_HAS_SWO
 #define PLATFORM_HAS_POWER_SWITCH
 #define PLATFORM_MULTI_UART
 #define PLATFORM_HAS_CUSTOM_COMMANDS

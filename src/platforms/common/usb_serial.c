@@ -45,7 +45,7 @@
 #include "platform.h"
 #include "gdb_if.h"
 #include "usb_serial.h"
-#ifdef PLATFORM_HAS_TRACESWO
+#ifdef PLATFORM_HAS_SWO
 #include "swo.h"
 #endif
 #include "aux_serial.h"
@@ -208,7 +208,7 @@ void usb_serial_set_config(usbd_device *const dev, const uint16_t value)
 	usbd_ep_setup(dev, CDCACM_UART_NOTIF_ENDPOINT | USB_REQ_TYPE_IN, USB_ENDPOINT_ATTR_INTERRUPT, 16U, NULL);
 #endif
 
-#ifdef PLATFORM_HAS_TRACESWO
+#ifdef PLATFORM_HAS_SWO
 	/* Trace interface */
 	usbd_ep_setup(dev, SWO_ENDPOINT | USB_REQ_TYPE_IN, USB_ENDPOINT_ATTR_BULK, SWO_ENDPOINT_SIZE, swo_send_buffer);
 #endif

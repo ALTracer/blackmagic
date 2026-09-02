@@ -30,7 +30,7 @@
 #include "timing.h"
 #include "timing_stm32.h"
 
-#define PLATFORM_HAS_TRACESWO
+#define PLATFORM_HAS_SWO
 #define PLATFORM_HAS_POWER_SWITCH
 
 #if ENABLE_DEBUG == 1
@@ -78,9 +78,9 @@ extern int hwversion;
  *                                                     with other devices in the circuit
  *                                                     input low, output high
  * TDO      = PA6  (input)
- * TRACESWO = PB7  (input)  -- To allow trace decoding using USART1
- *                             Hardware 4 has a normally open jumper between TDO and TRACESWO
- *                             Hardware 5 has hardwired connection between TDO and TRACESWO
+ * SWO      = PB7  (input)  -- To allow swo decoding using USART1
+ *                             Hardware 4 has a normally open jumper between TDO and SWO
+ *                             Hardware 5 has hardwired connection between TDO and SWO
  *          = PA10 (input)  -- Hardware 6 and newer
  * nRST_SNS = PA7  (input)  -- Hardware 5 and older
  *          = PC13 (input)  -- Hardware 6 and newer
@@ -274,7 +274,7 @@ extern int hwversion;
 #define USB_ISR(x) usb_lp_can_rx0_isr(x)
 /*
  * Interrupt priorities. Low numbers are high priority.
- * TIM3 is used for traceswo capture and must be highest priority.
+ * TIM3 is used for swo capture and must be highest priority.
  */
 #define IRQ_PRI_USB          (1U << 4U)
 #define IRQ_PRI_USBUSART     (2U << 4U)

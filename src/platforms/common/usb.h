@@ -59,7 +59,7 @@ extern _Atomic uint16_t usb_config;
 #define GDB_IF_NO  0U
 #define UART_IF_NO 2U
 #define DFU_IF_NO  4U
-#ifdef PLATFORM_HAS_TRACESWO
+#ifdef PLATFORM_HAS_SWO
 #define SWO_IF_NO        5U
 #define TOTAL_INTERFACES 6U
 #else

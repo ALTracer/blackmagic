@@ -1437,7 +1437,7 @@ void app_task(void)
 	//
 	// Check for swo trace data
 	//
-	// TODO Restore this when TRACESWO is implemented
+	// TODO Restore this when SWO is implemented
 	// trace_send_data();
 	//
 	// Run the mode led task?
