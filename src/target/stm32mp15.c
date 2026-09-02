@@ -342,7 +342,7 @@ bool stm32mp15_ca7_probe(target_s *const target)
 	/* DRAM 512 MiB at identity mapping base */
 	target_add_ram32(target, STM32MP15_DRAM_BASE, 512U * 1024U * 1024U);
 	/* Boot ROM (CA7 stays here in Engi boot) */
-	target_add_ram32(target, STM32MP15_CA7_BOOTROM_BASE, 128U * 1024U);
+	target_add_rom32(target, STM32MP15_CA7_BOOTROM_BASE, 128U * 1024U);
 
 	return true;
 }
