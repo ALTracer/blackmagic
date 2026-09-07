@@ -530,7 +530,7 @@ void platform_spi_xfer_block(
 {
 	const uint32_t spi_base = bus == SPI_BUS_EXTERNAL ? EXT_SPI : AUX_SPI;
 
-	/* Put a byte on MOSI, wait entire transfer, grab the byte from MOSI into buffer, repeat. */
+	/* Put a byte on MOSI, wait entire transfer, grab the byte from MISO into buffer, repeat. */
 	for (size_t i = 0; i < count; i++) {
 		uint8_t resp = spi_xfer(spi_base, tx_buf[i]);
 		if (rx_buf)
