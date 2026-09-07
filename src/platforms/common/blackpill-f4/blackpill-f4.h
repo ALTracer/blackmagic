@@ -33,6 +33,7 @@
 #include "timing_stm32.h"
 
 #define PLATFORM_HAS_SWO
+#define PLATFORM_HAS_SPI_BLOCKWISE
 
 #if ENABLE_DEBUG == 1
 #define PLATFORM_HAS_DEBUG

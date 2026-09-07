@@ -67,7 +67,7 @@ void bmp_spi_read(const spi_bus_e bus, const uint8_t device, const uint16_t comm
 	bmp_spi_setup_xfer(bus, device, command, address);
 	/* Now read back the data that elicited */
 	uint8_t *const data = (uint8_t *const)buffer;
-#if 0
+#if !defined(PLATFORM_HAS_SPI_BLOCKWISE)
 	for (size_t i = 0; i < length; ++i)
 		/* Do a write to read */
 		data[i] = platform_spi_xfer(bus, 0);
@@ -85,7 +85,7 @@ void bmp_spi_write(const spi_bus_e bus, const uint8_t device, const uint16_t com
 	bmp_spi_setup_xfer(bus, device, command, address);
 	/* Now write out back the data requested */
 	const uint8_t *const data = (const uint8_t *)buffer;
-#if 0
+#if !defined(PLATFORM_HAS_SPI_BLOCKWISE)
 	for (size_t i = 0; i < length; ++i)
 		/* Do a write to read */
 		platform_spi_xfer(bus, data[i]);
