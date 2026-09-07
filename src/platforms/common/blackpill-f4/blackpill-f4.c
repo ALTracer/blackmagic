@@ -343,7 +343,7 @@ void platform_spi_xfer_block(
 	spi_write(spi_base, tx_buf[0]);
 	/*
 	 * Put the next MOSI byte into TXDR,
-	 * wait for previous byte from MOSI to appear in RXDR and copy it into buffer,
+	 * wait for previous byte from MISO to appear in RXDR and copy it into buffer,
 	 * repeat N-2 times
 	 */
 	for (size_t i = 0; i < count - 1; i++) {
