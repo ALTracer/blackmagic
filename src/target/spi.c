@@ -72,6 +72,8 @@ void bmp_spi_read(const spi_bus_e bus, const uint8_t device, const uint16_t comm
 		/* Do a write to read */
 		data[i] = platform_spi_xfer(bus, 0);
 #else
+	/* Write zeroes to be sent as the buffer gets reused for read */
+	memset(data, 0, length);
 	platform_spi_xfer_block(bus, data, data, length);
 #endif
 	/* Deselect the Flash */
